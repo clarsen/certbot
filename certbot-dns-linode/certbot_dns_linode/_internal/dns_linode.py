@@ -67,13 +67,9 @@ class Authenticator(dns_common.DNSAuthenticator):
             api_version = None
 
         if not api_version:
-            api_version = 3
-
             # Match for v4 api key
             regex_v4 = re.compile('^[0-9a-f]{64}$')
-            regex_match = regex_v4.match(api_key)
-            if regex_match:
-                api_version = 4
+            api_version = 4 if (regex_match := regex_v4.match(api_key)) else 3
         else:
             api_version = int(api_version)
 

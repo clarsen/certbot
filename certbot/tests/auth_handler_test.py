@@ -36,7 +36,9 @@ class ChallengeFactoryTest(unittest.TestCase):
 
     def test_all(self):
         achalls = self.handler._challenge_factory(
-            self.authzr, range(0, len(acme_util.CHALLENGES)))
+            self.authzr, range(len(acme_util.CHALLENGES))
+        )
+
 
         self.assertEqual(
             [achall.chall for achall in achalls], acme_util.CHALLENGES)
@@ -371,13 +373,12 @@ class HandleAuthorizationsTest(unittest.TestCase):
         """When we deactivate valid authzrs in an orderr, we expect them to become deactivated
         and to receive a list of deactivated authzrs in return."""
         def _mock_deactivate(authzr):
-            if authzr.body.status == messages.STATUS_VALID:
-                if authzr.body.identifier.value == "is_valid_but_will_fail":
-                    raise acme_errors.Error("Mock deactivation ACME error")
-                authzb = authzr.body.update(status=messages.STATUS_DEACTIVATED)
-                authzr = messages.AuthorizationResource(body=authzb)
-            else: # pragma: no cover
+            if authzr.body.status != messages.STATUS_VALID:
                 raise errors.Error("Can't deactivate non-valid authz")
+            if authzr.body.identifier.value == "is_valid_but_will_fail":
+                raise acme_errors.Error("Mock deactivation ACME error")
+            authzb = authzr.body.update(status=messages.STATUS_DEACTIVATED)
+            authzr = messages.AuthorizationResource(body=authzb)
             return authzr
 
         to_deactivate = [("is_valid", messages.STATUS_VALID),

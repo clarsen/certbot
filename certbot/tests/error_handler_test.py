@@ -76,10 +76,8 @@ class ErrorHandlerTest(unittest.TestCase):
         init_signals = get_signals(self.signals)
         with signal_receiver(self.signals) as signals_received:
             with self.handler:
-                should_be_42 = 42
                 send_signal(self.signals[0])
-                should_be_42 *= 10
-
+                should_be_42 = 42 * 10
         # check execution stopped when the signal was sent
         self.assertEqual(42, should_be_42)
         # assert signals were caught

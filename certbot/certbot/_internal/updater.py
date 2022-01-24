@@ -82,9 +82,10 @@ def _run_updaters(lineage: storage.RenewableCert, installer: interfaces.Installe
     :returns: `None`
     :rtype: None
     """
-    if not config.disable_renew_updates:
-        if isinstance(installer, interfaces.GenericUpdater):
-            installer.generic_updates(lineage)
+    if not config.disable_renew_updates and isinstance(
+        installer, interfaces.GenericUpdater
+    ):
+        installer.generic_updates(lineage)
 
 
 def _run_enhancement_updaters(lineage: storage.RenewableCert, installer: interfaces.Installer,

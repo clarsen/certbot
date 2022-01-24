@@ -661,7 +661,7 @@ class MainTest(test_util.ConfigTestCase):
         """Run the client with output streams mocked out"""
         args = self.standard_args + args
 
-        toy_stdout = stdout if stdout else io.StringIO()
+        toy_stdout = stdout or io.StringIO()
         with mock.patch('certbot._internal.main.sys.stdout', new=toy_stdout):
             with mock.patch('certbot._internal.main.sys.stderr') as stderr:
                 with mock.patch("certbot.util.atexit"):

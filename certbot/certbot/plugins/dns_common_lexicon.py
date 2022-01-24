@@ -96,14 +96,10 @@ class LexiconClient:
 
                 return  # If `authenticate` doesn't throw an exception, we've found the right name
             except HTTPError as e:
-                result1 = self._handle_http_error(e, domain_name)
-
-                if result1:
+                if result1 := self._handle_http_error(e, domain_name):
                     raise result1
             except Exception as e:  # pylint: disable=broad-except
-                result2 = self._handle_general_error(e, domain_name)
-
-                if result2:
+                if result2 := self._handle_general_error(e, domain_name):
                     raise result2  # pylint: disable=raising-bad-type
 
         raise errors.PluginError('Unable to determine zone identifier for {0} using zone names: {1}'

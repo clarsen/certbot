@@ -75,16 +75,18 @@ class Reporter:
                 break_on_hyphens=False)
         while not self.messages.empty():
             msg = self.messages.get()
-            if self.config.quiet:
-                # In --quiet mode, we only print high priority messages that
-                # are flagged for crash cases
-                if not (msg.priority == self.HIGH_PRIORITY and msg.on_crash):
-                    continue
+            if self.config.quiet and not (
+                msg.priority == self.HIGH_PRIORITY and msg.on_crash
+            ):
+                continue
             if no_exception or msg.on_crash:
-                if bold_on and msg.priority > self.HIGH_PRIORITY:
-                    if not self.config.quiet:
-                        sys.stdout.write(util.ANSI_SGR_RESET)
-                        bold_on = False
+                if (
+                    bold_on
+                    and msg.priority > self.HIGH_PRIORITY
+                    and not self.config.quiet
+                ):
+                    sys.stdout.write(util.ANSI_SGR_RESET)
+                    bold_on = False
                 lines = msg.text.splitlines()
                 print(first_wrapper.fill(lines[0]))
                 if len(lines) > 1:

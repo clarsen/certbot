@@ -218,8 +218,17 @@ class _DisplayUtilDeprecationModule:
         self.__dict__['_module'] = module
 
     def __getattr__(self, attr: str) -> Any:
-        if attr in ('FileDisplay', 'NoninteractiveDisplay', 'SIDE_FRAME', 'input_with_timeout',
-                    'separate_list_input', 'summarize_domain_list', 'WIDTH', 'HELP', 'ESC'):
+        if attr in {
+            'FileDisplay',
+            'NoninteractiveDisplay',
+            'SIDE_FRAME',
+            'input_with_timeout',
+            'separate_list_input',
+            'summarize_domain_list',
+            'WIDTH',
+            'HELP',
+            'ESC',
+        }:
             warnings.warn('{0} attribute in certbot.display.util module is deprecated '
                           'and will be removed soon.'.format(attr),
                           DeprecationWarning, stacklevel=2)

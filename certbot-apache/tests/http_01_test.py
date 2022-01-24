@@ -79,11 +79,7 @@ class ApacheHttp01Test(util.ApacheTest):
 
         self.assertIs(mock_enmod.called, True)
         calls = mock_enmod.call_args_list
-        other_calls = []
-        for call in calls:
-            if call[0][0] != "rewrite":
-                other_calls.append(call)
-
+        other_calls = [call for call in calls if call[0][0] != "rewrite"]
         # If these lists are equal, we never enabled mod_rewrite
         self.assertNotEqual(calls, other_calls)
         return other_calls

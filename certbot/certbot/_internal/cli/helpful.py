@@ -160,7 +160,7 @@ class HelpfulArgumentParser:
             usage += COMMAND_OVERVIEW % (apache_doc, nginx_doc)
         elif isinstance(help_arg, str):
             custom = VERB_HELP_MAP.get(help_arg, {}).get("usage", None)
-            usage = custom if custom else usage
+            usage = custom or usage
         # Only remaining case is help_arg == False, which gives effectively usage == SHORT_USAGE.
 
         return usage
@@ -218,10 +218,11 @@ class HelpfulArgumentParser:
         if parsed_args.validate_hooks:
             hooks.validate_hooks(parsed_args)
 
-        if parsed_args.allow_subset_of_names:
-            if any(util.is_wildcard_domain(d) for d in parsed_args.domains):
-                raise errors.Error("Using --allow-subset-of-names with a"
-                                   " wildcard domain is not supported.")
+        if parsed_args.allow_subset_of_names and any(
+            util.is_wildcard_domain(d) for d in parsed_args.domains
+        ):
+            raise errors.Error("Using --allow-subset-of-names with a"
+                               " wildcard domain is not supported.")
 
         if parsed_args.hsts and parsed_args.auto_hsts:
             raise errors.Error(
@@ -272,7 +273,7 @@ class HelpfulArgumentParser:
         if parsed_args.allow_subset_of_names:
             raise errors.Error("--allow-subset-of-names cannot be used with --csr")
 
-        csrfile, contents = parsed_args.csr[0:2]
+        csrfile, contents = parsed_args.csr[:2]
         typ, csr, domains = crypto_util.import_csr_file(csrfile, contents)
 
         # This is not necessary for webroot to work, however,
@@ -400,7 +401,7 @@ class HelpfulArgumentParser:
         :rtype: dict
 
         """
-        action = kwargs.get("action", None)
+        action = kwargs.get("action")
         if action not in EXIT_ACTIONS:
             kwargs["action"] = ("store_true" if action in ZERO_ARG_ACTIONS else
                                 "store")

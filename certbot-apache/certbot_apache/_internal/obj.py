@@ -94,10 +94,7 @@ class Addr(common.Addr):
         :param str port: Desired port
 
         """
-        if self.is_wildcard():
-            return self
-
-        return self.get_addr_obj(port)
+        return self if self.is_wildcard() else self.get_addr_obj(port)
 
 
 class VirtualHost:
@@ -154,16 +151,7 @@ class VirtualHost:
         return all_names
 
     def __str__(self):
-        return (
-            f"File: {self.filep}\n"
-            f"Vhost path: {self.path}\n"
-            f"Addresses: {', '.join(str(addr) for addr in self.addrs)}\n"
-            f"Name: {self.name if self.name is not None else ''}\n"
-            f"Aliases: {', '.join(name for name in self.aliases)}\n"
-            f"TLS Enabled: {'Yes' if self.ssl else 'No'}\n"
-            f"Site Enabled: {'Yes' if self.enabled else 'No'}\n"
-            f"mod_macro Vhost: {'Yes' if self.modmacro else 'No'}"
-        )
+        return f'File: {self.filep}\nVhost path: {self.path}\nAddresses: {", ".join((str(addr) for addr in self.addrs))}\nName: {self.name if self.name is not None else ""}\nAliases: {", ".join(self.aliases)}\nTLS Enabled: {"Yes" if self.ssl else "No"}\nSite Enabled: {"Yes" if self.enabled else "No"}\nmod_macro Vhost: {"Yes" if self.modmacro else "No"}'
 
     def display_repr(self) -> str:
         """Return a representation of VHost to be used in dialog"""

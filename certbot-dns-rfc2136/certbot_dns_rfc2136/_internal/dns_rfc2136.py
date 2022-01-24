@@ -63,10 +63,10 @@ class Authenticator(dns_common.DNSAuthenticator):
         if not is_ipaddress(server):
             raise errors.PluginError("The configured target DNS server ({0}) is not a valid IPv4 "
                                      "or IPv6 address. A hostname is not allowed.".format(server))
-        algorithm = credentials.conf('algorithm')
-        if algorithm:
-            if not self.ALGORITHMS.get(algorithm.upper()):
-                raise errors.PluginError("Unknown algorithm: {0}.".format(algorithm))
+        if (
+            algorithm := credentials.conf('algorithm')
+        ) and not self.ALGORITHMS.get(algorithm.upper()):
+            raise errors.PluginError("Unknown algorithm: {0}.".format(algorithm))
 
     def _setup_credentials(self) -> None:
         self.credentials = self._configure_credentials(

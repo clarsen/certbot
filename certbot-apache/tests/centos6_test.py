@@ -16,7 +16,7 @@ def get_vh_truth(temp_dir, config_name):
         temp_dir, config_name, "httpd/conf.d")
 
     aug_pre = "/files" + prefix
-    vh_truth = [
+    return [
         obj.VirtualHost(
             os.path.join(prefix, "test.example.com.conf"),
             os.path.join(aug_pre, "test.example.com.conf/VirtualHost"),
@@ -28,7 +28,6 @@ def get_vh_truth(temp_dir, config_name):
             {obj.Addr.fromstring("_default_:443")},
             True, True, None)
     ]
-    return vh_truth
 
 class CentOS6Tests(util.ApacheTest):
     """Tests for CentOS 6"""

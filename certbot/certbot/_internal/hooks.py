@@ -76,8 +76,7 @@ def pre_hook(config: configuration.NamespaceConfig) -> None:
         for hook in list_hooks(config.renewal_pre_hooks_dir):
             _run_pre_hook_if_necessary(hook)
 
-    cmd = config.pre_hook
-    if cmd:
+    if cmd := config.pre_hook:
         _run_pre_hook_if_necessary(cmd)
 
 

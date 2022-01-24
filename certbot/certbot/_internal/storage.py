@@ -241,9 +241,7 @@ def get_link_target(link: str) -> str:
 
 
 def _write_live_readme_to(readme_path: str, is_base_dir: bool = False) -> None:
-    prefix = ""
-    if is_base_dir:
-        prefix = "[cert name]/"
+    prefix = "[cert name]/" if is_base_dir else ""
     with open(readme_path, "w") as f:
         logger.debug("Writing README to %s.", readme_path)
         f.write("This directory contains your keys and certificates.\n\n"
@@ -289,10 +287,8 @@ def relevant_values(all_values: Mapping[str, Any]) -> Dict[str, Any]:
     plugins = plugins_disco.PluginsRegistry.find_all()
     namespaces = [plugins_common.dest_namespace(plugin) for plugin in plugins]
 
-    rv = dict(
-        (option, value)
-        for option, value in all_values.items()
-        if _relevant(namespaces, option) and cli.option_was_set(option, value))
+    rv = {option: value for option, value in all_values.items()
+            if _relevant(namespaces, option) and cli.option_was_set(option, value)}
     # We always save the server value to help with forward compatibility
     # and behavioral consistency when versions of Certbot with different
     # server defaults are used.
@@ -473,7 +469,7 @@ class RenewableCert(interfaces.RenewableCert):
         #       file at this stage?
         self.configuration = config_with_defaults(self.configfile)
 
-        if not all(x in self.configuration for x in ALL_FOUR):
+        if any(x not in self.configuration for x in ALL_FOUR):
             raise errors.CertStorageError(
                 "renewal config file {0} is missing a required "
                 "file reference".format(self.configfile))
@@ -559,9 +555,7 @@ class RenewableCert(interfaces.RenewableCert):
     @property
     def is_test_cert(self) -> bool:
         """Returns true if this is a test cert from a staging server."""
-        if self.server:
-            return util.is_staging(self.server)
-        return False
+        return util.is_staging(self.server) if self.server else False
 
     def _check_symlinks(self) -> None:
         """Raises an exception if a symlink doesn't exist"""
@@ -747,8 +741,7 @@ class RenewableCert(interfaces.RenewableCert):
             logger.debug("Current-version target for %s "
                          "does not exist at %s.", kind, target)
             target = ""
-        matches = pattern.match(os.path.basename(target))
-        if matches:
+        if matches := pattern.match(os.path.basename(target)):
             return int(matches.groups()[0])
         logger.debug("No matches for target %s.", kind)
         return None
@@ -1121,10 +1114,7 @@ class RenewableCert(interfaces.RenewableCert):
                 password=None,
                 backend=default_backend()
             )
-        if isinstance(key, RSAPrivateKey):
-            return "RSA"
-        else:
-            return "ECDSA"
+        return "RSA" if isinstance(key, RSAPrivateKey) else "ECDSA"
 
     def save_successor(self, prior_version: int, new_cert: bytes, new_privkey: bytes,
                        new_chain: bytes, cli_config: configuration.NamespaceConfig) -> int:

@@ -20,7 +20,7 @@ def get_vh_truth(temp_dir, config_name):
         temp_dir, config_name, "apache2/vhosts.d")
 
     aug_pre = "/files" + prefix
-    vh_truth = [
+    return [
         obj.VirtualHost(
             os.path.join(prefix, "gentoo.example.com.conf"),
             os.path.join(aug_pre, "gentoo.example.com.conf/VirtualHost"),
@@ -39,7 +39,6 @@ def get_vh_truth(temp_dir, config_name):
             {obj.Addr.fromstring("_default_:443")},
             True, True, "localhost")
     ]
-    return vh_truth
 
 class MultipleVhostsTestGentoo(util.ApacheTest):
     """Multiple vhost tests for non-debian distro"""
@@ -115,9 +114,7 @@ class MultipleVhostsTestGentoo(util.ApacheTest):
         )
         def mock_get_cfg(command):
             """Mock httpd process stdout"""
-            if command == ['apache2ctl', 'modules']:
-                return mod_val
-            return None  # pragma: no cover
+            return mod_val if command == ['apache2ctl', 'modules'] else None
         mock_get.side_effect = mock_get_cfg
         self.config.parser.modules = {}
 

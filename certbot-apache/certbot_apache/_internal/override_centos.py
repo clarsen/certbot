@@ -114,11 +114,12 @@ class CentOSConfigurator(configurator.ApacheConfigurator):
 
             centos_parser: CentOSParser = cast(CentOSParser, self.parser)
             if centos_parser.not_modssl_ifmodule(noarg_path):
-                if centos_parser.loc["default"] in noarg_path:
-                    # LoadModule already in the main configuration file
-                    if "ifmodule/" in noarg_path.lower() or "ifmodule[1]" in noarg_path.lower():
-                        # It's the first or only IfModule in the file
-                        return
+                if centos_parser.loc["default"] in noarg_path and (
+                    "ifmodule/" in noarg_path.lower()
+                    or "ifmodule[1]" in noarg_path.lower()
+                ):
+                    # It's the first or only IfModule in the file
+                    return
                 # Populate the list of known !mod_ssl.c IfModules
                 nodir_path = noarg_path.rpartition("/directive")[0]
                 correct_ifmods.append(nodir_path)
@@ -196,7 +197,7 @@ class CentOSParser(parser.ApacheParser):
                 ifmod_path += parts[2].partition("/")[0]
             # Get the original path trimmed to correct length
             # This is required to preserve cases
-            ifmod_real_path = path[0:len(ifmod_path)]
+            ifmod_real_path = path[:len(ifmod_path)]
             if "!mod_ssl.c" in self.get_all_args(ifmod_real_path):
                 return True
             # Set the workpath to the heading part

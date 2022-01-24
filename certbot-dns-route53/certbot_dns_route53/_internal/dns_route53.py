@@ -143,7 +143,7 @@ class Authenticator(dns_common.DNSAuthenticator):
         """Wait for a change to be propagated to all Route53 DNS servers.
            https://docs.aws.amazon.com/Route53/latest/APIReference/API_GetChange.html
         """
-        for unused_n in range(0, 120):
+        for _ in range(120):
             response = self.r53.get_change(Id=change_id)
             if response["ChangeInfo"]["Status"] == "INSYNC":
                 return

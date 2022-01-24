@@ -230,7 +230,7 @@ def patch_get_utility_with_stdout(target: str = 'zope.component.getUtility',
                   'should now patch certbot.display.util yourself directly or use '
                   'use certbot.tests.util.patch_display_util_with_stdout as a temporary '
                   'workaround.')
-    stdout = stdout if stdout else io.StringIO()
+    stdout = stdout or io.StringIO()
     freezable_mock = _create_display_util_mock_with_stdout(stdout)
     return cast(mock.MagicMock, mock.patch(target, new=freezable_mock))
 
@@ -287,7 +287,7 @@ def patch_display_util_with_stdout(
     :rtype: mock.MagicMock
 
     """
-    stdout = stdout if stdout else io.StringIO()
+    stdout = stdout or io.StringIO()
 
     return cast(mock.MagicMock, mock.patch('certbot._internal.display.obj.get_display',
                                            new=_create_display_util_mock_with_stdout(stdout)))
@@ -330,7 +330,7 @@ class FreezableMock:
                 return object.__getattribute__(self, name)
             except AttributeError:
                 return False
-        elif name in ('return_value', 'side_effect',):
+        elif name in {'return_value', 'side_effect'}:
             return getattr(object.__getattribute__(self, '_mock'), name)
         elif name == '_frozen_set' or name in self._frozen_set:
             return object.__getattribute__(self, name)
@@ -356,7 +356,7 @@ class FreezableMock:
         if name != '_frozen_set':
             self._frozen_set.add(name)
 
-        if name in ('return_value', 'side_effect'):
+        if name in {'return_value', 'side_effect'}:
             return setattr(self._mock, name, value)
 
         return object.__setattr__(self, name, value)
@@ -410,10 +410,11 @@ def _create_display_util_mock_with_stdout(stdout: IO) -> FreezableMock:
 def _assert_valid_call(*args: Any, **kwargs: Any) -> None:
     assert_args = [args[0] if args else kwargs['message']]
 
-    assert_kwargs = {}
-    assert_kwargs['default'] = kwargs.get('default', None)
-    assert_kwargs['cli_flag'] = kwargs.get('cli_flag', None)
-    assert_kwargs['force_interactive'] = kwargs.get('force_interactive', False)
+    assert_kwargs = {
+        'default': kwargs.get('default'),
+        'cli_flag': kwargs.get('cli_flag'),
+        'force_interactive': kwargs.get('force_interactive', False),
+    }
 
     display_util.assert_valid_call(*assert_args, **assert_kwargs)
 
@@ -465,10 +466,7 @@ def _handle_lock(event_in: synchronize.Event, event_out: synchronize.Event, path
     :param multiprocessing.Event event_out: event object to signal when the lock is acquired
     :param path: the path to lock
     """
-    if os.path.isdir(path):
-        my_lock = lock.lock_dir(path)
-    else:
-        my_lock = lock.LockFile(path)
+    my_lock = lock.lock_dir(path) if os.path.isdir(path) else lock.LockFile(path)
     try:
         event_out.set()
         assert event_in.wait(timeout=20), 'Timeout while waiting to release the lock.'

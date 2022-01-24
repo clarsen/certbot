@@ -74,7 +74,7 @@ class SSLSocket:  # pylint: disable=too-few-public-methods
                                                        Tuple[crypto.PKey,
                                                              crypto.X509]]]] = cert_selection
         if actual_cert_selection is None:
-            actual_cert_selection = _DefaultCertSelection(certs if certs else {})
+            actual_cert_selection = _DefaultCertSelection(certs or {})
         self.cert_selection = actual_cert_selection
 
     def __getattr__(self, name: str) -> Any:
@@ -219,7 +219,6 @@ def make_csr(private_key_pem: bytes, domains: Optional[Union[Set[str], List[str]
     private_key = crypto.load_privatekey(
         crypto.FILETYPE_PEM, private_key_pem)
     csr = crypto.X509Req()
-    sanlist = []
     # if domain or ip list not supplied make it empty list so it's easier to iterate
     if domains is None:
         domains = []
@@ -227,8 +226,7 @@ def make_csr(private_key_pem: bytes, domains: Optional[Union[Set[str], List[str]
         ipaddrs = []
     if len(domains)+len(ipaddrs) == 0:
         raise ValueError("At least one of domains or ipaddrs parameter need to be not empty")
-    for address in domains:
-        sanlist.append('DNS:' + address)
+    sanlist = ['DNS:' + address for address in domains]
     for ips in ipaddrs:
         sanlist.append('IP:' + ips.exploded)
     # make sure its ascii encoded
@@ -338,10 +336,7 @@ def _pyopenssl_extract_san_list_raw(cert_or_req: Union[crypto.X509, crypto.X509R
     raw_san = re.search(r"X509v3 Subject Alternative Name:(?: critical)?\s*(.*)", text)
 
     parts_separator = ", "
-    # WARNING: this function assumes that no SAN can include
-    # parts_separator, hence the split!
-    sans_parts = [] if raw_san is None else raw_san.group(1).split(parts_separator)
-    return sans_parts
+    return [] if raw_san is None else raw_san.group(1).split(parts_separator)
 
 
 def gen_ss_cert(key: crypto.PKey, domains: Optional[List[str]] = None,
@@ -387,9 +382,7 @@ def gen_ss_cert(key: crypto.PKey, domains: Optional[List[str]] = None,
     # TODO: what to put into cert.get_subject()?
     cert.set_issuer(cert.get_subject())
 
-    sanlist = []
-    for address in domains:
-        sanlist.append('DNS:' + address)
+    sanlist = ['DNS:' + address for address in domains]
     for ip in ips:
         sanlist.append('IP:' + ip.exploded)
     san_string = ', '.join(sanlist).encode('ascii')

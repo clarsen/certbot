@@ -95,9 +95,8 @@ class ApacheParser:
                             self.configurator.options.vhost_files)
 
         # check to see if there were unparsed define statements
-        if version < (2, 4):
-            if self.find_dir("Define", exclude=False):
-                raise errors.PluginError("Error parsing runtime variables")
+        if version < (2, 4) and self.find_dir("Define", exclude=False):
+            raise errors.PluginError("Error parsing runtime variables")
 
     def check_parsing_errors(self, lens: str) -> None:
         """Verify Augeas can parse all of the lens files.
@@ -311,8 +310,7 @@ class ApacheParser:
         # configuration files
         _ = self.find_dir("Include")
 
-        matches = apache_util.parse_includes(self.configurator.options.ctl)
-        if matches:
+        if matches := apache_util.parse_includes(self.configurator.options.ctl):
             for i in matches:
                 if not self.parsed_in_current(i):
                     self.parse_file(i)
@@ -339,19 +337,17 @@ class ApacheParser:
 
         """
         filtered: List[str] = []
-        if args == 1:
-            for i, match in enumerate(matches):
+        for i, match in enumerate(matches):
+            if args == 1:
                 if match.endswith("/arg"):
                     filtered.append(matches[i][:-4])
-        else:
-            for i, match in enumerate(matches):
-                if match.endswith("/arg[%d]" % args):
-                    # Make sure we don't cause an IndexError (end of list)
-                    # Check to make sure arg + 1 doesn't exist
-                    if (i == (len(matches) - 1) or
-                            not matches[i + 1].endswith("/arg[%d]" %
-                                                        (args + 1))):
-                        filtered.append(matches[i][:-len("/arg[%d]" % args)])
+            elif match.endswith("/arg[%d]" % args) and (
+                (
+                    i == (len(matches) - 1)
+                    or not matches[i + 1].endswith("/arg[%d]" % (args + 1))
+                )
+            ):
+                filtered.append(matches[i][:-len("/arg[%d]" % args)])
 
         return filtered
 
@@ -594,7 +590,7 @@ class ApacheParser:
         """
 
         if match[-1] != "/":
-            match = match + "/"
+            match += "/"
         allargs = self.aug.match(match + '*')
         return [self.get_arg(arg) for arg in allargs]
 
@@ -668,9 +664,8 @@ class ApacheParser:
                 # Strip off "!"
                 if expression[1:] in filter_[1]:
                     return False
-            else:
-                if expression not in filter_[1]:
-                    return False
+            elif expression not in filter_[1]:
+                return False
 
             last_match_idx = match_l.find(filter_[0], end_of_if)
 
@@ -837,10 +832,7 @@ class ApacheParser:
         try:
             new_file_match = os.path.basename(filepath)
             existing_matches = self.parser_paths[os.path.dirname(filepath)]
-            if "*" in existing_matches:
-                use_new = False
-            else:
-                use_new = True
+            use_new = "*" not in existing_matches
             remove_old = new_file_match == "*"
         except KeyError:
             use_new = True

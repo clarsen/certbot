@@ -540,11 +540,11 @@ class AugeasBlockNode(AugeasDirectiveNode):
             counter
         )
 
-        # Form the correct insert_path
-        # Inserting the only child and appending as the last child work
-        # similarly in Augeas.
-        append = not all_children or position is None or position >= len(all_children)
-        if append:
+        if (
+            append := not all_children
+            or position is None
+            or position >= len(all_children)
+        ):
             insert_path = "{}/*[last()]".format(
                 self.metadata["augeaspath"]
             )

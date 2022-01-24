@@ -17,14 +17,11 @@ def wrap_lines(msg: str) -> str:
 
     """
     lines = msg.splitlines()
-    fixed_l = []
-
-    for line in lines:
-        fixed_l.append(textwrap.fill(
+    fixed_l = [textwrap.fill(
             line,
             80,
             break_long_words=False,
-            break_on_hyphens=False))
+            break_on_hyphens=False) for line in lines]
 
     return '\n'.join(fixed_l)
 

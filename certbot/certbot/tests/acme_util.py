@@ -37,7 +37,7 @@ def chall_to_challb(chall: challenges.Challenge, status: messages.Status) -> mes
     }
 
     if status == messages.STATUS_VALID:
-        kwargs.update({"validated": datetime.datetime.now()})
+        kwargs["validated"] = datetime.datetime.now()
 
     return messages.ChallengeBody(**kwargs)
 
@@ -80,16 +80,14 @@ def gen_authzr(authz_status: messages.Status, domain: str, challs: Iterable[chal
         "challenges": challbs,
     }
     if combos:
-        authz_kwargs.update({"combinations": gen_combos(challbs)})
+        authz_kwargs["combinations"] = gen_combos(challbs)
     if authz_status == messages.STATUS_VALID:
         authz_kwargs.update({
             "status": authz_status,
             "expires": datetime.datetime.now() + datetime.timedelta(days=31),
         })
     else:
-        authz_kwargs.update({
-            "status": authz_status,
-        })
+        authz_kwargs["status"] = authz_status
 
     return messages.AuthorizationResource(
         uri="https://trusted.ca/new-authz-resource",

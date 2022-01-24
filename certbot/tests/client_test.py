@@ -467,16 +467,10 @@ class ClientTest(ClientTestCommon):
         mock_from_fullchain.return_value = (mock_cert, mock_chain)
 
     def _authzr_from_domains(self, domains):
-        authzr = []
-
-        # domain ordering should not be affected by authorization order
-        for domain in reversed(domains):
-            authzr.append(
-                mock.MagicMock(
+        return [mock.MagicMock(
                     body=mock.MagicMock(
                         identifier=mock.MagicMock(
-                            value=domain))))
-        return authzr
+                            value=domain))) for domain in reversed(domains)]
 
     def _test_obtain_certificate_common(self, key, csr, authzr_ret=None, auth_count=1):
         self._mock_obtain_certificate()

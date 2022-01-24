@@ -311,14 +311,12 @@ class ApacheConfigurator(common.Configurator):
         if ssl_module_location:
             # Possibility A: ssl_module is a DSO
             ssl_module_location = self.parser.standard_path_from_server_root(ssl_module_location)
+        elif self.options.bin:
+            ssl_module_location = self.options.bin
         else:
-            # Possibility B: ssl_module is statically linked into Apache
-            if self.options.bin:
-                ssl_module_location = self.options.bin
-            else:
-                logger.warning("ssl_module is statically linked but --apache-bin is "
-                               "missing; not disabling session tickets.")
-                return None
+            logger.warning("ssl_module is statically linked but --apache-bin is "
+                           "missing; not disabling session tickets.")
+            return None
         # Step 2. Grep in the binary for openssl version
         contents = self._open_module_file(ssl_module_location)
         if not contents:
@@ -463,10 +461,9 @@ class ApacheConfigurator(common.Configurator):
 
     def _verify_exe_availability(self, exe: str) -> None:
         """Checks availability of Apache executable"""
-        if not util.exe_exists(exe):
-            if not path_surgery(exe):
-                raise errors.NoInstallationError(
-                    'Cannot find Apache executable {0}'.format(exe))
+        if not util.exe_exists(exe) and not path_surgery(exe):
+            raise errors.NoInstallationError(
+                'Cannot find Apache executable {0}'.format(exe))
 
     def get_parser(self) -> parser.ApacheParser:
         """Initializes the ApacheParser"""
@@ -535,15 +532,14 @@ class ApacheConfigurator(common.Configurator):
         :rtype: `list` of :class:`~certbot_apache._internal.obj.VirtualHost`
         """
 
-        if util.is_wildcard_domain(domain):
-            if domain in self._wildcard_vhosts:
-                # Vhosts for a wildcard domain were already selected
-                return self._wildcard_vhosts[domain]
-            # Ask user which VHosts to support.
-            # Returned objects are guaranteed to be ssl vhosts
-            return self._choose_vhosts_wildcard(domain, create_if_no_ssl)
-        else:
+        if not util.is_wildcard_domain(domain):
             return [self.choose_vhost(domain, create_if_no_ssl)]
+        if domain in self._wildcard_vhosts:
+            # Vhosts for a wildcard domain were already selected
+            return self._wildcard_vhosts[domain]
+        # Ask user which VHosts to support.
+        # Returned objects are guaranteed to be ssl vhosts
+        return self._choose_vhosts_wildcard(domain, create_if_no_ssl)
 
     def _vhosts_for_wildcard(self, domain: str) -> List[obj.VirtualHost]:
         """
@@ -597,13 +593,9 @@ class ApacheConfigurator(common.Configurator):
         filtered_vhosts = {}
         for vhost in vhosts:
             for name in vhost.get_names():
-                if vhost.ssl:
+                if vhost.ssl or name not in filtered_vhosts and create_ssl:
                     # Always prefer SSL vhosts
                     filtered_vhosts[name] = vhost
-                elif name not in filtered_vhosts and create_ssl:
-                    # Add if not in list previously
-                    filtered_vhosts[name] = vhost
-
         # Only unique VHost objects
         dialog_input = set(filtered_vhosts.values())
 
@@ -664,7 +656,7 @@ class ApacheConfigurator(common.Configurator):
             # install SSLCertificateFile, SSLCertificateKeyFile,
             # and SSLCertificateChainFile directives
             set_cert_path = cert_path
-            self.parser.aug.set(path["cert_path"][-1], cert_path)
+            self.parser.aug.set(path["cert_path"][-1], set_cert_path)
             self.parser.aug.set(path["cert_key"][-1], key_path)
             if chain_path is not None:
                 self.parser.add_dir(vhost.path,
@@ -677,7 +669,7 @@ class ApacheConfigurator(common.Configurator):
                 raise errors.PluginError("Please provide the --fullchain-path "
                                          "option pointing to your full chain file")
             set_cert_path = fullchain_path
-            self.parser.aug.set(path["cert_path"][-1], fullchain_path)
+            self.parser.aug.set(path["cert_path"][-1], set_cert_path)
             self.parser.aug.set(path["cert_key"][-1], key_path)
 
         # Enable the new vhost if needed
@@ -794,10 +786,13 @@ class ApacheConfigurator(common.Configurator):
         :returns: VirtualHost object that's the best match for target name
         :rtype: `obj.VirtualHost` or None
         """
-        filtered_vhosts = []
-        for vhost in self.vhosts:
-            if any(a.is_wildcard() or a.get_port() == port for a in vhost.addrs) and not vhost.ssl:
-                filtered_vhosts.append(vhost)
+        filtered_vhosts = [
+            vhost
+            for vhost in self.vhosts
+            if any(a.is_wildcard() or a.get_port() == port for a in vhost.addrs)
+            and not vhost.ssl
+        ]
+
         return self._find_best_vhost(target, filtered_vhosts, filter_defaults)
 
     def _find_best_vhost(
@@ -866,9 +861,11 @@ class ApacheConfigurator(common.Configurator):
 
     def _non_default_vhosts(self, vhosts: List[obj.VirtualHost]) -> List[obj.VirtualHost]:
         """Return all non _default_ only vhosts."""
-        return [vh for vh in vhosts if not all(
-            addr.get_addr() == "_default_" for addr in vh.addrs
-        )]
+        return [
+            vh
+            for vh in vhosts
+            if any(addr.get_addr() != "_default_" for addr in vh.addrs)
+        ]
 
     def get_all_names(self) -> Set[str]:
         """Returns all names found in the Apache Configuration.
@@ -890,10 +887,8 @@ class ApacheConfigurator(common.Configurator):
             for addr in vhost.addrs:
                 if common.hostname_regex.match(addr.get_addr()):
                     all_names.add(addr.get_addr())
-                else:
-                    name = self.get_name_from_ip(addr)
-                    if name:
-                        all_names.add(name)
+                elif name := self.get_name_from_ip(addr):
+                    all_names.add(name)
 
         if vhost_macro:
             display_util.notification(
@@ -1026,11 +1021,7 @@ class ApacheConfigurator(common.Configurator):
             v2_vhosts = self.get_virtual_hosts_v2()
 
             for v1_vh in v1_vhosts:
-                found = False
-                for v2_vh in v2_vhosts:
-                    if assertions.isEqualVirtualHost(v1_vh, v2_vh):
-                        found = True
-                        break
+                found = any(assertions.isEqualVirtualHost(v1_vh, v2_vh) for v2_vh in v2_vhosts)
                 if not found:
                     raise AssertionError("Equivalent for {} was not found".format(v1_vh.path))
 
@@ -1101,11 +1092,8 @@ class ApacheConfigurator(common.Configurator):
         if not self.parser_root:
             raise errors.Error("This ApacheConfigurator instance is not"  # pragma: no cover
                                " configured to use a node parser.")
-        vhs = []
         vhosts = self.parser_root.find_blocks("VirtualHost", exclude=False)
-        for vhblock in vhosts:
-            vhs.append(self._create_vhost_v2(vhblock))
-        return vhs
+        return [self._create_vhost_v2(vhblock) for vhblock in vhosts]
 
     def _create_vhost_v2(self, node) -> obj.VirtualHost:
         """Used by get_virtual_hosts_v2 to create vhost objects using ParserNode
@@ -1116,14 +1104,11 @@ class ApacheConfigurator(common.Configurator):
         """
         addrs = set()
         for param in node.parameters:
-            addr = obj.Addr.fromstring(param)
-            if addr:
+            if addr := obj.Addr.fromstring(param):
                 addrs.add(addr)
 
         is_ssl = False
-        # Exclusion to match the behavior in get_virtual_hosts_v2
-        sslengine = node.find_directives("SSLEngine", exclude=False)
-        if sslengine:
+        if sslengine := node.find_directives("SSLEngine", exclude=False):
             for directive in sslengine:
                 if directive.parameters[0].lower() == "on":
                     is_ssl = True
@@ -1137,10 +1122,7 @@ class ApacheConfigurator(common.Configurator):
 
         enabled = apache_util.included_in_paths(node.filepath, self.parsed_paths)
 
-        macro = False
-        # Check if the VirtualHost is contained in a mod_macro block
-        if node.find_ancestors("Macro"):
-            macro = True
+        macro = bool(node.find_ancestors("Macro"))
         # VirtualHost V2 is part of migration to the pure-Python Apache parser project. It is not
         # used on production as of now.
         # TODO: Use a meaning full value for augeas path instead of an empty string
@@ -1159,10 +1141,7 @@ class ApacheConfigurator(common.Configurator):
         servername_match = vhost.node.find_directives("ServerName", exclude=False)
         serveralias_match = vhost.node.find_directives("ServerAlias", exclude=False)
 
-        servername = None
-        if servername_match:
-            servername = servername_match[-1].parameters[-1]
-
+        servername = servername_match[-1].parameters[-1] if servername_match else None
         if not vhost.modmacro:
             for alias in serveralias_match:
                 for serveralias in alias.parameters:
@@ -1264,8 +1243,7 @@ class ApacheConfigurator(common.Configurator):
                 # The Listen statement specifies an ip
                 _, ip = listen[::-1].split(":", 1)
                 ip = ip[::-1]
-                if "%s:%s" % (ip, port_service) not in listen_dirs and (
-                    "%s:%s" % (ip, port_service) not in listen_dirs):
+                if "%s:%s" % (ip, port_service) not in listen_dirs:
                     listen_dirs.add("%s:%s" % (ip, port_service))
         if https:
             self._add_listens_https(listen_dirs, listens, port)
@@ -1307,11 +1285,7 @@ class ApacheConfigurator(common.Configurator):
         """
 
         # Add service definition for non-standard ports
-        if port != "443":
-            port_service = f"{port} https"
-        else:
-            port_service = port
-
+        port_service = f"{port} https" if port != "443" else port
         new_listens = listens.difference(listens_orig)
 
         if port in new_listens or port_service in new_listens:
@@ -1342,10 +1316,11 @@ class ApacheConfigurator(common.Configurator):
             return True
         # Check if Apache is already listening on a specific IP
         for listen in listens:
-            if len(listen.split(":")) > 1:
-                # Ugly but takes care of protocol def, eg: 1.1.1.1:443 https
-                if listen.split(":")[-1].split(" ")[0] == port:
-                    return True
+            if (
+                len(listen.split(":")) > 1
+                and listen.split(":")[-1].split(" ")[0] == port
+            ):
+                return True
         return None
 
     def prepare_https_modules(self, temp: bool) -> None:
@@ -1417,9 +1392,9 @@ class ApacheConfigurator(common.Configurator):
                 (self._escape(ssl_fp),
                  parser.case_i("VirtualHost")))
             vh_p = self._get_new_vh_path(orig_matches, new_matches)
-            if not vh_p:
-                raise errors.PluginError(
-                    "Could not reverse map the HTTPS VirtualHost to the original")
+        if not vh_p:
+            raise errors.PluginError(
+                "Could not reverse map the HTTPS VirtualHost to the original")
 
         # Update Addresses
         self._update_ssl_vhosts_addrs(vh_p)
@@ -1532,8 +1507,7 @@ class ApacheConfigurator(common.Configurator):
         # configuration is rolled back
         if os.path.exists(ssl_fp):
             notes = "Appended new VirtualHost directive to file %s" % ssl_fp
-            files = set()
-            files.add(ssl_fp)
+            files = {ssl_fp}
             self.reverter.add_to_checkpoint(files, notes)
         else:
             self.reverter.register_file_creation(False, ssl_fp)
@@ -1600,13 +1574,12 @@ class ApacheConfigurator(common.Configurator):
                 result.append("# " + line)
                 continue
 
-            # We save RewriteCond(s) and their corresponding
-            # RewriteRule in 'chunk'.
-            # We then decide whether we comment out the entire
-            # chunk based on its RewriteRule.
-            chunk = []
             if A:
-                chunk.append(line)
+                        # We save RewriteCond(s) and their corresponding
+                        # RewriteRule in 'chunk'.
+                        # We then decide whether we comment out the entire
+                        # chunk based on its RewriteRule.
+                chunk = [line]
                 line = next(contents)
 
                 # RewriteCond(s) must be followed by one RewriteRule
@@ -1674,9 +1647,7 @@ class ApacheConfigurator(common.Configurator):
         ssl_addr_p: List[str] = self.parser.aug.match(vh_path + "/arg")
 
         for addr in ssl_addr_p:
-            old_addr = obj.Addr.fromstring(
-                str(self.parser.get_arg(addr)))
-            if old_addr:
+            if old_addr := obj.Addr.fromstring(str(self.parser.get_arg(addr))):
                 ssl_addr = old_addr.get_addr_obj("443")
                 self.parser.aug.set(addr, str(ssl_addr))
                 ssl_addrs.add(ssl_addr)
@@ -1813,8 +1784,7 @@ class ApacheConfigurator(common.Configurator):
         # Strip the {} off from the format string
         search_comment = constants.MANAGED_COMMENT_ID.format("")
 
-        id_comment = self.parser.find_comments(search_comment, vhost.path)
-        if id_comment:
+        if id_comment := self.parser.find_comments(search_comment, vhost.path):
             # Use the first value, multiple ones shouldn't exist
             comment = self.parser.get_arg(id_comment[0])
             if comment is not None:
@@ -1833,8 +1803,7 @@ class ApacheConfigurator(common.Configurator):
         :rtype: str or None
         """
 
-        vh_id = self._find_vhost_id(vhost)
-        if vh_id:
+        if vh_id := self._find_vhost_id(vhost):
             return vh_id
 
         id_string = apache_util.unique_id()
@@ -1925,8 +1894,7 @@ class ApacheConfigurator(common.Configurator):
         """
 
         hsts_dirpath = None
-        header_path = self.parser.find_dir("Header", None, vhost.path)
-        if header_path:
+        if header_path := self.parser.find_dir("Header", None, vhost.path):
             pat = '(?:[ "]|^)(strict-transport-security)(?:[ "]|$)'
             for match in header_path:
                 if re.search(pat, self.parser.aug.get(match).lower()):
@@ -2013,13 +1981,9 @@ class ApacheConfigurator(common.Configurator):
 
         ssl_vhost_aug_path = self._escape(parser.get_aug_path(ssl_vhost.filep))
 
-        # Check if there's an existing SSLStaplingCache directive.
-        stapling_cache_aug_path = self.parser.find_dir('SSLStaplingCache',
-                                                       None, ssl_vhost_aug_path)
-
-        # We'll simply delete the directive, so that we'll have a
-        # consistent OCSP cache path.
-        if stapling_cache_aug_path:
+        if stapling_cache_aug_path := self.parser.find_dir(
+            'SSLStaplingCache', None, ssl_vhost_aug_path
+        ):
             self.parser.aug.remove(
                 re.sub(r"/\w*$", "", stapling_cache_aug_path[0]))
 
@@ -2090,9 +2054,9 @@ class ApacheConfigurator(common.Configurator):
                 header_substring exists
 
         """
-        header_path = self.parser.find_dir("Header", None,
-                                           start=ssl_vhost.path)
-        if header_path:
+        if header_path := self.parser.find_dir(
+            "Header", None, start=ssl_vhost.path
+        ):
             # "Existing Header directive for virtualhost"
             pat = '(?:[ "]|^)(%s)(?:[ "]|$)' % (header_substring.lower())
             for match in header_path:
@@ -2211,8 +2175,7 @@ class ApacheConfigurator(common.Configurator):
         rewrite_args_dict: DefaultDict[str, List[str]] = defaultdict(list)
         pat = r'(.*directive\[\d+\]).*'
         for match in rewrite_path:
-            m = re.match(pat, match)
-            if m:
+            if m := re.match(pat, match):
                 dir_path = m.group(1)
                 rewrite_args_dict[dir_path].append(match)
 
@@ -2256,8 +2219,9 @@ class ApacheConfigurator(common.Configurator):
         :type vhost: :class:`~certbot_apache._internal.obj.VirtualHost`
 
         """
-        rewrite_engine_path_list = self.parser.find_dir("RewriteEngine", "on", start=vhost.path)
-        if rewrite_engine_path_list:
+        if rewrite_engine_path_list := self.parser.find_dir(
+            "RewriteEngine", "on", start=vhost.path
+        ):
             for re_path in rewrite_engine_path_list:
                 # A RewriteEngine directive may also be included in per
                 # directory .htaccess files. We only care about the VirtualHost.
@@ -2325,10 +2289,10 @@ class ApacheConfigurator(common.Configurator):
         redirect_filename = "le-redirect.conf"
 
         # See if a more appropriate name can be applied
-        if ssl_vhost.name is not None:
-            # make sure servername doesn't exceed filename length restriction
-            if len(ssl_vhost.name) < (255 - (len(redirect_filename) + 1)):
-                redirect_filename = "le-redirect-%s.conf" % ssl_vhost.name
+        if ssl_vhost.name is not None and len(ssl_vhost.name) < (
+            255 - (len(redirect_filename) + 1)
+        ):
+            redirect_filename = "le-redirect-%s.conf" % ssl_vhost.name
 
         redirect_filepath = os.path.join(self.options.vhost_root,
                                          redirect_filename)
@@ -2379,11 +2343,7 @@ class ApacheConfigurator(common.Configurator):
         :returns: `set` of :class:`~obj.Addr`
 
         """
-        redirects = set()
-        for addr in vhost.addrs:
-            redirects.add(addr.get_addr_obj(port))
-
-        return redirects
+        return {addr.get_addr_obj(port) for addr in vhost.addrs}
 
     def enable_site(self, vhost: obj.VirtualHost) -> None:
         """Enables an available site, Apache reload required.
@@ -2552,8 +2512,7 @@ class ApacheConfigurator(common.Configurator):
             # when they are all complete.
             http_doer.add_chall(achall, i)
 
-        http_response = http_doer.perform()
-        if http_response:
+        if http_response := http_doer.perform():
             # Must reload in order to activate the challenges.
             # Handled here because we may be able to load up other challenge
             # types

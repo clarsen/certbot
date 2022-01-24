@@ -22,7 +22,7 @@ class ExecuteTest(unittest.TestCase):
             return execute_command(*args, **kwargs)
 
     def test_it(self):
-        for returncode in range(0, 2):
+        for returncode in range(2):
             for stdout in ("", "Hello World!",):
                 for stderr in ("", "Goodbye Cruel World!"):
                     self._test_common(returncode, stdout, stderr)

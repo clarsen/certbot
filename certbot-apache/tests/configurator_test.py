@@ -101,18 +101,17 @@ class MultipleVhostsTest(util.ApacheTest):
         parserargs = ["server_root", "enmod", "dismod", "le_vhost_ext",
                       "vhost_root", "logs_root", "challenge_location",
                       "handle_modules", "handle_sites", "ctl"]
-        exp = {}
+        exp = {
+            k.replace("_", "-"): getattr(ApacheConfigurator.OS_DEFAULTS, k)
+            for k in ApacheConfigurator.OS_DEFAULTS.__dict__.keys()
+            if k in parserargs
+        }
 
-        for k in ApacheConfigurator.OS_DEFAULTS.__dict__.keys():
-            if k in parserargs:
-                exp[k.replace("_", "-")] = getattr(ApacheConfigurator.OS_DEFAULTS, k)
+
         # Special cases
         exp["vhost-root"] = None
 
-        found = set()
-        for call in mock_add.call_args_list:
-            found.add(call[0][0])
-
+        found = {call[0][0] for call in mock_add.call_args_list}
         # Make sure that all (and only) the expected values exist
         self.assertEqual(len(mock_add.call_args_list), len(found))
         for e in exp:
@@ -380,12 +379,9 @@ class MultipleVhostsTest(util.ApacheTest):
             """Mock method for _add_dummy_ssl_directives"""
             def find_args(path, directive):
                 """Return list of arguments in requested directive at path"""
-                f_args = []
                 dirs = self.config.parser.find_dir(directive, None,
                                                    path)
-                for d in dirs:
-                    f_args.append(self.config.parser.get_arg(d))
-                return f_args
+                return [self.config.parser.get_arg(d) for d in dirs]
             # Verify that the dummy directives do not exist
             self.assertNotIn(
                 "insert_cert_file_path", find_args(vhostpath, "SSLCertificateFile"))
@@ -490,10 +486,11 @@ class MultipleVhostsTest(util.ApacheTest):
         self.assertEqual(mock_add_dir.call_count, 3)
         self.assertIs(mock_add_dir.called, True)
         self.assertEqual(mock_add_dir.call_args[0][1], "Listen")
-        call_found = False
-        for mock_call in mock_add_dir.mock_calls:
-            if mock_call[1][2] == ['1.2.3.4:8080']:
-                call_found = True
+        call_found = any(
+            mock_call[1][2] == ['1.2.3.4:8080']
+            for mock_call in mock_add_dir.mock_calls
+        )
+
         self.assertIs(call_found, True)
 
     @mock.patch("certbot_apache._internal.parser.ApacheParser.reset_modules")
@@ -728,9 +725,15 @@ class MultipleVhostsTest(util.ApacheTest):
         self.config._add_name_vhost_if_necessary(self.vh_truth[0])
         self.assertIs(self.config.add_name_vhost.called, True)
 
-        new_addrs = set()
-        for addr in self.vh_truth[0].addrs:
-            new_addrs.add(obj.Addr(("_default_", addr.get_port(),)))
+        new_addrs = {
+            obj.Addr(
+                (
+                    "_default_",
+                    addr.get_port(),
+                )
+            )
+            for addr in self.vh_truth[0].addrs
+        }
 
         self.vh_truth[0].addrs = new_addrs
         self.config._add_name_vhost_if_necessary(self.vh_truth[0])

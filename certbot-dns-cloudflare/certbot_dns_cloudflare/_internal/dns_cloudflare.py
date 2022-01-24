@@ -151,8 +151,9 @@ class _CloudflareClient:
             return
 
         if zone_id:
-            record_id = self._find_txt_record_id(zone_id, record_name, record_content)
-            if record_id:
+            if record_id := self._find_txt_record_id(
+                zone_id, record_name, record_content
+            ):
                 try:
                     # zones | pylint: disable=no-member
                     self.cf.zones.dns_records.delete(zone_id, record_id)
@@ -212,22 +213,21 @@ class _CloudflareClient:
                 logger.debug('Found zone_id of %s for %s using name %s', zone_id, domain, zone_name)
                 return zone_id
 
-        if msg is not None:
-            if 'com.cloudflare.api.account.zone.list' in msg:
-                raise errors.PluginError('Unable to determine zone_id for {0} using zone names: '
-                                         '{1}. Please confirm that the domain name has been '
-                                         'entered correctly and your Cloudflare Token has access '
-                                         'to the domain.'.format(domain, zone_name_guesses))
-            else:
-                raise errors.PluginError('Unable to determine zone_id for {0} using zone names: '
-                                         '{1}. The error from Cloudflare was: {2} {3}.'
-                                         .format(domain, zone_name_guesses, code, msg))
-        else:
+        if msg is None:
             raise errors.PluginError('Unable to determine zone_id for {0} using zone names: '
                                      '{1}. Please confirm that the domain name has been '
                                      'entered correctly and is already associated with the '
                                      'supplied Cloudflare account.'
                                      .format(domain, zone_name_guesses))
+        if 'com.cloudflare.api.account.zone.list' in msg:
+            raise errors.PluginError('Unable to determine zone_id for {0} using zone names: '
+                                     '{1}. Please confirm that the domain name has been '
+                                     'entered correctly and your Cloudflare Token has access '
+                                     'to the domain.'.format(domain, zone_name_guesses))
+        else:
+            raise errors.PluginError('Unable to determine zone_id for {0} using zone names: '
+                                     '{1}. The error from Cloudflare was: {2} {3}.'
+                                     .format(domain, zone_name_guesses, code, msg))
 
     def _find_txt_record_id(self, zone_id: str, record_name: str,
                             record_content: str) -> Optional[str]:

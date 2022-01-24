@@ -64,10 +64,11 @@ class ACMEServer:
         self._stdout = sys.stdout if stdout else open(os.devnull, 'w') # pylint: disable=consider-using-with
         self._dns_server = dns_server
         self._http_01_port = http_01_port
-        if http_01_port != DEFAULT_HTTP_01_PORT:
-            if self._acme_type != 'pebble' or self._proxy:
-                raise ValueError('setting http_01_port is not currently supported '
-                                  'with boulder or the HTTP proxy')
+        if http_01_port != DEFAULT_HTTP_01_PORT and (
+            self._acme_type != 'pebble' or self._proxy
+        ):
+            raise ValueError('setting http_01_port is not currently supported '
+                              'with boulder or the HTTP proxy')
 
     def start(self) -> None:
         """Start the test stack"""
@@ -123,27 +124,17 @@ class ACMEServer:
 
     def _construct_acme_xdist(self, acme_server: str, nodes: Sequence[str]) -> None:
         """Generate and return the acme_xdist dict"""
-        acme_xdist = {'acme_server': acme_server, 'challtestsrv_port': CHALLTESTSRV_PORT}
+        acme_xdist = {
+            'acme_server': acme_server,
+            'challtestsrv_port': CHALLTESTSRV_PORT,
+            'directory_url': PEBBLE_DIRECTORY_URL
+            if acme_server == 'pebble'
+            else BOULDER_V2_DIRECTORY_URL,
+            'http_port': dict(zip(nodes, range(5200, 5200 + len(nodes)))),
+            'https_port': dict(zip(nodes, range(5100, 5100 + len(nodes)))),
+            'other_port': dict(zip(nodes, range(5300, 5300 + len(nodes)))),
+        }
 
-        # Directory and ACME port are set implicitly in the docker-compose.yml
-        # files of Boulder/Pebble.
-        if acme_server == 'pebble':
-            acme_xdist['directory_url'] = PEBBLE_DIRECTORY_URL
-        else:  # boulder
-            acme_xdist['directory_url'] = BOULDER_V2_DIRECTORY_URL
-
-        acme_xdist['http_port'] = {
-            node: port for (node, port) in  # pylint: disable=unnecessary-comprehension
-            zip(nodes, range(5200, 5200 + len(nodes)))
-        }
-        acme_xdist['https_port'] = {
-            node: port for (node, port) in  # pylint: disable=unnecessary-comprehension
-            zip(nodes, range(5100, 5100 + len(nodes)))
-        }
-        acme_xdist['other_port'] = {
-            node: port for (node, port) in  # pylint: disable=unnecessary-comprehension
-            zip(nodes, range(5300, 5300 + len(nodes)))
-        }
 
         self.acme_xdist = acme_xdist
 
