@@ -157,11 +157,10 @@ class NginxConfigurator(common.Configurator):
                 config_filename = "options-ssl-nginx.conf"
             else:
                 config_filename = "options-ssl-nginx-tls13-session-tix-on.conf"
+        elif session_tix_off:
+            config_filename = "options-ssl-nginx-tls12-only.conf"
         else:
-            if session_tix_off:
-                config_filename = "options-ssl-nginx-tls12-only.conf"
-            else:
-                config_filename = "options-ssl-nginx-old.conf"
+            config_filename = "options-ssl-nginx-old.conf"
 
         return pkg_resources.resource_filename(
             "certbot_nginx", os.path.join("_internal", "tls_configs", config_filename))
@@ -286,17 +285,21 @@ class NginxConfigurator(common.Configurator):
         filtered_vhosts = {}
         for vhost in vhosts:
             # Ensure we're listening non-sslishly on no_ssl_filter_port
-            if no_ssl_filter_port is not None:
-                if not self._vhost_listening_on_port_no_ssl(vhost, no_ssl_filter_port):
-                    continue
+            if (
+                no_ssl_filter_port is not None
+                and not self._vhost_listening_on_port_no_ssl(
+                    vhost, no_ssl_filter_port
+                )
+            ):
+                continue
             for name in vhost.names:
-                if preference_test(vhost):
+                if (
+                    preference_test(vhost)
+                    or not preference_test(vhost)
+                    and name not in filtered_vhosts
+                ):
                     # Prefer either SSL or non-SSL vhosts
                     filtered_vhosts[name] = vhost
-                elif name not in filtered_vhosts:
-                    # Add if not in list previously
-                    filtered_vhosts[name] = vhost
-
         # Only unique VHost objects
         dialog_input = set(filtered_vhosts.values())
 
@@ -315,8 +318,7 @@ class NginxConfigurator(common.Configurator):
     #######################
     def _choose_vhost_single(self, target_name: str) -> List[obj.VirtualHost]:
         matches = self._get_ranked_matches(target_name)
-        vhosts = [x for x in [self._select_best_name_match(matches)] if x is not None]
-        return vhosts
+        return [x for x in [self._select_best_name_match(matches)] if x is not None]
 
     def choose_vhosts(self, target_name: str,
                       create_if_no_match: bool = False) -> List[obj.VirtualHost]:
@@ -548,12 +550,10 @@ class NginxConfigurator(common.Configurator):
         """
         if util.is_wildcard_domain(target_name):
             # Ask user which VHosts to enhance.
-            vhosts = self._choose_vhosts_wildcard(target_name, prefer_ssl=False,
+            return self._choose_vhosts_wildcard(target_name, prefer_ssl=False,
                 no_ssl_filter_port=port)
-        else:
-            matches = self._get_redirect_ranked_matches(target_name, port)
-            vhosts = [x for x in [self._select_best_name_match(matches)]if x is not None]
-        return vhosts
+        matches = self._get_redirect_ranked_matches(target_name, port)
+        return [x for x in [self._select_best_name_match(matches)]if x is not None]
 
     def choose_auth_vhosts(self, target_name: str) -> Tuple[List[obj.VirtualHost],
                                                             List[obj.VirtualHost]]:
@@ -586,7 +586,7 @@ class NginxConfigurator(common.Configurator):
 
     def _port_matches(self, test_port: str, matching_port: str) -> bool:
         # test_port is a number, matching is a number or "" or None
-        if matching_port == "" or matching_port is None:
+        if not matching_port or matching_port is None:
             # if no port is specified, Nginx defaults to listening on port 80.
             return test_port == self.DEFAULT_LISTEN_PORT
         return test_port == matching_port
@@ -1085,10 +1085,10 @@ class NginxConfigurator(common.Configurator):
         matches = re.findall(r"running with OpenSSL ([^ ]+) ", text)
         if not matches:
             matches = re.findall(r"built with OpenSSL ([^ ]+) ", text)
-            if not matches:
-                logger.warning("NGINX configured with OpenSSL alternatives is not officially"
-                    " supported by Certbot.")
-                return ""
+        if not matches:
+            logger.warning("NGINX configured with OpenSSL alternatives is not officially"
+                " supported by Certbot.")
+            return ""
         return matches[0]
 
     def more_info(self) -> str:
@@ -1231,17 +1231,38 @@ def _test_block_from_block(block: List[Any]) -> List[Any]:
 def _redirect_block_for_domain(domain: str) -> List[Any]:
     updated_domain = domain
     match_symbol = '='
-    if util.is_wildcard_domain(domain):
+    if util.is_wildcard_domain(updated_domain):
         match_symbol = '~'
         updated_domain = updated_domain.replace('.', r'\.')
         updated_domain = updated_domain.replace('*', '[^.]+')
         updated_domain = '^' + updated_domain + '$'
-    redirect_block = [[
-        ['\n    ', 'if', ' ', '($host', ' ', match_symbol, ' ', '%s)' % updated_domain, ' '],
-        [['\n        ', 'return', ' ', '301', ' ', 'https://$host$request_uri'],
-        '\n    ']],
-        ['\n']]
-    return redirect_block
+    return [
+        [
+            [
+                '\n    ',
+                'if',
+                ' ',
+                '($host',
+                ' ',
+                match_symbol,
+                ' ',
+                '%s)' % updated_domain,
+                ' ',
+            ],
+            [
+                [
+                    '\n        ',
+                    'return',
+                    ' ',
+                    '301',
+                    ' ',
+                    'https://$host$request_uri',
+                ],
+                '\n    ',
+            ],
+        ],
+        ['\n'],
+    ]
 
 
 def nginx_restart(nginx_ctl: str, nginx_conf: str, sleep_duration: int) -> None:

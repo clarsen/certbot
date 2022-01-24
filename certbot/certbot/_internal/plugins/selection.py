@@ -101,18 +101,18 @@ def pick_plugin(config: configuration.NamespaceConfig, default: Optional[str],
     if default is not None:
         # throw more UX-friendly error if default not in plugins
         filtered = plugins.filter(lambda p_ep: p_ep.check_name(default))
-    else:
-        if config.noninteractive_mode:
-            # it's really bad to auto-select the single available plugin in
-            # non-interactive mode, because an update could later add a second
-            # available plugin
-            raise errors.MissingCommandlineFlag(
-                "Missing command line flags. For non-interactive execution, "
-                "you will need to specify a plugin on the command line.  Run "
-                "with '--help plugins' to see a list of options, and see "
-                "https://eff.org/letsencrypt-plugins for more detail on what "
-                "the plugins do and how to use them.")
+    elif config.noninteractive_mode:
+        # it's really bad to auto-select the single available plugin in
+        # non-interactive mode, because an update could later add a second
+        # available plugin
+        raise errors.MissingCommandlineFlag(
+            "Missing command line flags. For non-interactive execution, "
+            "you will need to specify a plugin on the command line.  Run "
+            "with '--help plugins' to see a list of options, and see "
+            "https://eff.org/letsencrypt-plugins for more detail on what "
+            "the plugins do and how to use them.")
 
+    else:
         filtered = plugins.visible().ifaces(ifaces)
 
     filtered.init(config)
@@ -179,15 +179,11 @@ def record_chosen_plugins(config: configuration.NamespaceConfig, plugins: disco.
                           inst: Optional[interfaces.Installer]) -> None:
     """Update the config entries to reflect the plugins we actually selected."""
     config.authenticator = None
-    if auth:
-        auth_ep = plugins.find_init(auth)
-        if auth_ep:
-            config.authenticator = auth_ep.name
+    if auth and (auth_ep := plugins.find_init(auth)):
+        config.authenticator = auth_ep.name
     config.installer = None
-    if inst:
-        inst_ep = plugins.find_init(inst)
-        if inst_ep:
-            config.installer = inst_ep.name
+    if inst and (inst_ep := plugins.find_init(inst)):
+        config.installer = inst_ep.name
     logger.info("Plugins selected: Authenticator %s, Installer %s",
                 config.authenticator, config.installer)
 
@@ -270,10 +266,9 @@ def set_configurator(previously: Optional[str], now: Optional[str]) -> Optional[
     if not now:
         # we're not actually setting anything
         return previously
-    if previously:
-        if previously != now:
-            msg = "Too many flags setting configurators/installers/authenticators {0} -> {1}"
-            raise errors.PluginSelectionError(msg.format(repr(previously), repr(now)))
+    if previously and previously != now:
+        msg = "Too many flags setting configurators/installers/authenticators {0} -> {1}"
+        raise errors.PluginSelectionError(msg.format(repr(previously), repr(now)))
     return now
 
 

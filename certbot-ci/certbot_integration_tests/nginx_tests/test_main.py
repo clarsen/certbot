@@ -39,8 +39,7 @@ def test_certificate_deployment(certname_pattern: str, params: List[str],
     Test various scenarios to deploy a certificate to nginx using certbot.
     """
     domains = certname_pattern.format(context.worker_id)
-    command = ['--domains', domains]
-    command.extend(params)
+    command = ['--domains', domains, *params]
     context.certbot_test_nginx(command)
 
     lineage = domains.split(',')[0]

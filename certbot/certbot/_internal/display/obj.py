@@ -235,18 +235,16 @@ class FileDisplay:
                                    "blank to select all options shown",
                                    force_interactive=True)
 
-            if code == OK:
-                if not ans.strip():
-                    ans = " ".join(str(x) for x in range(1, len(tags)+1))
-                indices = util.separate_list_input(ans)
-                selected_tags = self._scrub_checklist_input(indices, tags)
-                if selected_tags:
-                    return code, selected_tags
-                self.outfile.write(
-                    "** Error - Invalid selection **%s" % os.linesep)
-                self.outfile.flush()
-            else:
+            if code != OK:
                 return code, []
+            if not ans.strip():
+                ans = " ".join(str(x) for x in range(1, len(tags)+1))
+            indices = util.separate_list_input(ans)
+            if selected_tags := self._scrub_checklist_input(indices, tags):
+                return code, selected_tags
+            self.outfile.write(
+                "** Error - Invalid selection **%s" % os.linesep)
+            self.outfile.flush()
 
     def _return_default(self, prompt: str, default: Optional[T],
                         cli_flag: Optional[str], force_interactive: bool) -> Optional[T]:
@@ -424,8 +422,7 @@ class NoninteractiveDisplay:
     def _interaction_fail(self, message: str, cli_flag: Optional[str],
                           extra: str = "") -> errors.MissingCommandlineFlag:
         """Return error to raise in case of an attempt to interact in noninteractive mode"""
-        msg = "Missing command line flag or config entry for this setting:\n"
-        msg += message
+        msg = "Missing command line flag or config entry for this setting:\n" + message
         if extra:
             msg += "\n" + extra
         if cli_flag:

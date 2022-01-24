@@ -100,9 +100,10 @@ class RevocationChecker:
         # - proxy exclusion through NO_PROXY
         env_http_proxy = getenv('http_proxy')
         env_HTTP_PROXY = getenv('HTTP_PROXY')
-        proxy_host = None
         if env_http_proxy is not None or env_HTTP_PROXY is not None:
             proxy_host = env_http_proxy if env_http_proxy is not None else env_HTTP_PROXY
+        else:
+            proxy_host = None
         if proxy_host is None:
             url_opts = ["-url", url]
         else:
@@ -151,9 +152,7 @@ def _determine_ocsp_server(cert_path: str) -> Tuple[Optional[str], Optional[str]
         return None, None
 
     url = url.rstrip()
-    host = url.partition("://")[2].rstrip("/")
-
-    if host:
+    if host := url.partition("://")[2].rstrip("/"):
         return url, host
     logger.info("Cannot process OCSP host from URL (%s) in certificate at %s", url, cert_path)
     return None, None
@@ -313,11 +312,10 @@ def _translate_ocsp_query(cert_path: str, ocsp_output: str, ocsp_errors: str) ->
         logger.info("Revocation status for %s is unknown", cert_path)
         logger.debug("Uncertain output:\n%s\nstderr:\n%s", ocsp_output, ocsp_errors)
         return False
-    elif good and not warning:
+    elif good:
         return False
     elif revoked:
-        warning = revoked.group(1)
-        if warning:
+        if warning := revoked.group(1):
             logger.info("OCSP revocation warning: %s", warning)
         return True
     else:

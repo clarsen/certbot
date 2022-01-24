@@ -9,6 +9,7 @@ except for the functions defined below.
 isort:skip_file
 """
 
+
 # NB1: If adding a new documented function to compat.os, ensure that it is added to the
 #       ':members:' list in certbot/docs/api/certbot.compat.os.rst.
 
@@ -33,7 +34,7 @@ import sys as std_sys
 ourselves = std_sys.modules[__name__]
 # Adding all of stdlib os to this module confuses Sphinx so we skip this when
 # building the documentation.
-if not std_os.environ.get("CERTBOT_DOCS") == "1":
+if std_os.environ.get("CERTBOT_DOCS") != "1":
     for attribute in dir(std_os):
         # Check if the attribute does not already exist in our module. It could
         # be internal attributes of the module (__name__, __doc__), or

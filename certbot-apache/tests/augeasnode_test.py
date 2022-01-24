@@ -71,9 +71,9 @@ class AugeasParserNodeTest(util.ApacheTest):  # pylint: disable=too-many-public-
             "/files/etc/apache2/apache2.conf/VirtualHost": "VirtualHost",
             "/Anything": "Anything",
         }
-        for test in testcases:
+        for test, value in testcases.items():
             # pylint: disable=protected-access
-            self.assertEqual(block._aug_get_name(test), testcases[test])
+            self.assertEqual(block._aug_get_name(test), value)
 
     def test_find_blocks(self):
         blocks = self.config.parser_root.find_blocks("VirtualHost", exclude=False)

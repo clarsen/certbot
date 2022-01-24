@@ -691,22 +691,19 @@ class ClientV2(ClientBase):
         dnsNames = crypto_util._pyopenssl_cert_or_req_all_names(csr)
         ipNames = crypto_util._pyopenssl_cert_or_req_san_ip(csr)
         # ipNames is now []string
-        identifiers = []
-        for name in dnsNames:
-            identifiers.append(messages.Identifier(typ=messages.IDENTIFIER_FQDN,
-                value=name))
+        identifiers = [messages.Identifier(typ=messages.IDENTIFIER_FQDN,
+                value=name) for name in dnsNames]
         for ips in ipNames:
             identifiers.append(messages.Identifier(typ=messages.IDENTIFIER_IP,
                 value=ips))
         order = messages.NewOrder(identifiers=identifiers)
         response = self._post(self.directory['newOrder'], order)
         body = messages.Order.from_json(response.json())
-        authorizations = []
-        # pylint has trouble understanding our josepy based objects which use
-        # things like custom metaclass logic. body.authorizations should be a
-        # list of strings containing URLs so let's disable this check here.
-        for url in body.authorizations:  # pylint: disable=not-an-iterable
-            authorizations.append(self._authzr_from_response(self._post_as_get(url), uri=url))
+        authorizations = [
+            self._authzr_from_response(self._post_as_get(url), uri=url)
+            for url in body.authorizations
+        ]
+
         return messages.OrderResource(
             body=body,
             uri=response.headers.get('Location'),
@@ -929,9 +926,10 @@ class BackwardsCompatibleClientV2:
             csr = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr_pem)
             # pylint: disable=protected-access
             dnsNames = crypto_util._pyopenssl_cert_or_req_all_names(csr)
-            authorizations = []
-            for domain in dnsNames:
-                authorizations.append(client_v1.request_domain_challenges(domain))
+            authorizations = [
+                client_v1.request_domain_challenges(domain) for domain in dnsNames
+            ]
+
             return messages.OrderResource(authorizations=authorizations, csr_pem=csr_pem)
         return cast(ClientV2, self.client).new_order(csr_pem)
 
@@ -948,34 +946,34 @@ class BackwardsCompatibleClientV2:
         :rtype: messages.OrderResource
 
         """
-        if self.acme_version == 1:
-            client_v1 = cast(Client, self.client)
-            csr_pem = orderr.csr_pem
-            certr = client_v1.request_issuance(
-                jose.ComparableX509(
-                    OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr_pem)),
-                    orderr.authorizations)
+        if self.acme_version != 1:
+            return cast(ClientV2, self.client).finalize_order(
+                orderr, deadline, fetch_alternative_chains)
+        client_v1 = cast(Client, self.client)
+        csr_pem = orderr.csr_pem
+        certr = client_v1.request_issuance(
+            jose.ComparableX509(
+                OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr_pem)),
+                orderr.authorizations)
 
-            chain = None
-            while datetime.datetime.now() < deadline:
-                try:
-                    chain = client_v1.fetch_chain(certr)
-                    break
-                except errors.Error:
-                    time.sleep(1)
+        chain = None
+        while datetime.datetime.now() < deadline:
+            try:
+                chain = client_v1.fetch_chain(certr)
+                break
+            except errors.Error:
+                time.sleep(1)
 
-            if chain is None:
-                raise errors.TimeoutError(
-                    'Failed to fetch chain. You should not deploy the generated '
-                    'certificate, please rerun the command for a new one.')
+        if chain is None:
+            raise errors.TimeoutError(
+                'Failed to fetch chain. You should not deploy the generated '
+                'certificate, please rerun the command for a new one.')
 
-            cert = OpenSSL.crypto.dump_certificate(
-                    OpenSSL.crypto.FILETYPE_PEM, certr.body.wrapped).decode()
-            chain_str = crypto_util.dump_pyopenssl_chain(chain).decode()
+        cert = OpenSSL.crypto.dump_certificate(
+                OpenSSL.crypto.FILETYPE_PEM, certr.body.wrapped).decode()
+        chain_str = crypto_util.dump_pyopenssl_chain(chain).decode()
 
-            return orderr.update(fullchain_pem=(cert + chain_str))
-        return cast(ClientV2, self.client).finalize_order(
-            orderr, deadline, fetch_alternative_chains)
+        return orderr.update(fullchain_pem=(cert + chain_str))
 
     def revoke(self, cert: jose.ComparableX509, rsn: int) -> None:
         """Revoke certificate.
@@ -991,9 +989,7 @@ class BackwardsCompatibleClientV2:
         self.client.revoke(cert, rsn)
 
     def _acme_version_from_directory(self, directory: messages.Directory) -> int:
-        if hasattr(directory, 'newNonce'):
-            return 2
-        return 1
+        return 2 if hasattr(directory, 'newNonce') else 1
 
     def external_account_required(self) -> bool:
         """Checks if the server requires an external account for ACMEv2 servers.
@@ -1119,19 +1115,18 @@ class ClientNetwork:
             raise errors.ConflictError(response.headers.get('Location', 'UNKNOWN-LOCATION'))
 
         if not response.ok:
-            if jobj is not None:
-                if response_ct != cls.JSON_ERROR_CONTENT_TYPE:
-                    logger.debug(
-                        'Ignoring wrong Content-Type (%r) for JSON Error',
-                        response_ct)
-                try:
-                    raise messages.Error.from_json(jobj)
-                except jose.DeserializationError as error:
-                    # Couldn't deserialize JSON object
-                    raise errors.ClientError((response, error))
-            else:
+            if jobj is None:
                 # response is not JSON object
                 raise errors.ClientError(response)
+            if response_ct != cls.JSON_ERROR_CONTENT_TYPE:
+                logger.debug(
+                    'Ignoring wrong Content-Type (%r) for JSON Error',
+                    response_ct)
+            try:
+                raise messages.Error.from_json(jobj)
+            except jose.DeserializationError as error:
+                # Couldn't deserialize JSON object
+                raise errors.ClientError((response, error))
         else:
             if jobj is not None and response_ct != cls.JSON_CONTENT_TYPE:
                 logger.debug(
@@ -1236,16 +1231,15 @@ class ClientNetwork:
             self._send_request('GET', url, **kwargs), content_type=content_type)
 
     def _add_nonce(self, response: requests.Response) -> None:
-        if self.REPLAY_NONCE_HEADER in response.headers:
-            nonce = response.headers[self.REPLAY_NONCE_HEADER]
-            try:
-                decoded_nonce = jws.Header._fields['nonce'].decode(nonce)
-            except jose.DeserializationError as error:
-                raise errors.BadNonce(nonce, error)
-            logger.debug('Storing nonce: %s', nonce)
-            self._nonces.add(decoded_nonce)
-        else:
+        if self.REPLAY_NONCE_HEADER not in response.headers:
             raise errors.MissingNonce(response)
+        nonce = response.headers[self.REPLAY_NONCE_HEADER]
+        try:
+            decoded_nonce = jws.Header._fields['nonce'].decode(nonce)
+        except jose.DeserializationError as error:
+            raise errors.BadNonce(nonce, error)
+        logger.debug('Storing nonce: %s', nonce)
+        self._nonces.add(decoded_nonce)
 
     def _get_nonce(self, url: str, new_nonce_url: str) -> str:
         if not self._nonces:
@@ -1297,7 +1291,7 @@ class _ClientDeprecationModule:
         self.__dict__['_module'] = module
 
     def __getattr__(self, attr: str) -> Any:
-        if attr in ('Client', 'BackwardsCompatibleClientV2'):
+        if attr in {'Client', 'BackwardsCompatibleClientV2'}:
             warnings.warn('The {0} attribute in acme.client is deprecated '
                           'and will be removed soon.'.format(attr),
                           DeprecationWarning, stacklevel=2)

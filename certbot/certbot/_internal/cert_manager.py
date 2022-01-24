@@ -214,9 +214,11 @@ def _archive_files(candidate_lineage: storage.RenewableCert, filetype: str) -> O
         :rtype: list of str or None
     """
     archive_dir = candidate_lineage.archive_dir
-    pattern = [os.path.join(archive_dir, f) for f in os.listdir(archive_dir)
-                    if re.match("{0}[0-9]*.pem".format(filetype), f)]
-    if pattern:
+    if pattern := [
+        os.path.join(archive_dir, f)
+        for f in os.listdir(archive_dir)
+        if re.match("{0}[0-9]*.pem".format(filetype), f)
+    ]:
         return pattern
     return None
 
@@ -294,7 +296,6 @@ def match_and_check_overlaps(cli_config: configuration.NamespaceConfig,
 def human_readable_cert_info(config: configuration.NamespaceConfig, cert: storage.RenewableCert,
                              skip_filter_checks: bool = False) -> Optional[str]:
     """ Returns a human readable description of info about a RenewableCert object"""
-    certinfo = []
     checker = ocsp.RevocationChecker()
 
     if config.certname and cert.lineagename != config.certname and not skip_filter_checks:
@@ -324,28 +325,33 @@ def human_readable_cert_info(config: configuration.NamespaceConfig, cert: storag
 
     valid_string = "{0} ({1})".format(cert.target_expiry, status)
     serial = format(crypto_util.get_serial_from_cert(cert.cert_path), 'x')
-    certinfo.append("  Certificate Name: {}\n"
-                    "    Serial Number: {}\n"
-                    "    Key Type: {}\n"
-                    "    Domains: {}\n"
-                    "    Expiry Date: {}\n"
-                    "    Certificate Path: {}\n"
-                    "    Private Key Path: {}".format(
-                         cert.lineagename,
-                         serial,
-                         cert.private_key_type,
-                         " ".join(cert.names()),
-                         valid_string,
-                         cert.fullchain,
-                         cert.privkey))
+    certinfo = [
+        (
+            "  Certificate Name: {}\n"
+            "    Serial Number: {}\n"
+            "    Key Type: {}\n"
+            "    Domains: {}\n"
+            "    Expiry Date: {}\n"
+            "    Certificate Path: {}\n"
+            "    Private Key Path: {}".format(
+                cert.lineagename,
+                serial,
+                cert.private_key_type,
+                " ".join(cert.names()),
+                valid_string,
+                cert.fullchain,
+                cert.privkey,
+            )
+        )
+    ]
+
     return "".join(certinfo)
 
 
 def get_certnames(config: configuration.NamespaceConfig, verb: str, allow_multiple: bool = False,
                   custom_prompt: Optional[str] = None) -> List[str]:
     """Get certname from flag, interactively, or error out."""
-    certname = config.certname
-    if certname:
+    if certname := config.certname:
         certnames = [certname]
     else:
         filenames = storage.renewal_conf_files(config)
@@ -370,7 +376,7 @@ def get_certnames(config: configuration.NamespaceConfig, verb: str, allow_multip
             code, index = display_util.menu(
                 prompt, choices, cli_flag="--cert-name", force_interactive=True)
 
-            if code != display_util.OK or index not in range(0, len(choices)):
+            if code != display_util.OK or index not in range(len(choices)):
                 raise errors.Error("User ended interaction.")
             certnames = [choices[index]]
     return certnames

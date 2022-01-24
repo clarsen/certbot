@@ -278,13 +278,7 @@ def make_key(bits: int = 1024, key_type: str = "rsa",
               or of type ec_curve when key_type ecdsa is used.
     :rtype: str
     """
-    if key_type == 'rsa':
-        if bits < 1024:
-            raise errors.Error("Unsupported RSA key length: {}".format(bits))
-
-        key = crypto.PKey()
-        key.generate_key(crypto.TYPE_RSA, bits)
-    elif key_type == 'ecdsa':
+    if key_type == 'ecdsa':
         if not elliptic_curve:
             raise errors.Error("When key_type == ecdsa, elliptic_curve must be set.")
         try:
@@ -310,6 +304,12 @@ def make_key(bits: int = 1024, key_type: str = "rsa",
             encryption_algorithm=NoEncryption()
         )
         key = crypto.load_privatekey(crypto.FILETYPE_PEM, _key_pem)
+    elif key_type == 'rsa':
+        if bits < 1024:
+            raise errors.Error("Unsupported RSA key length: {}".format(bits))
+
+        key = crypto.PKey()
+        key.generate_key(crypto.TYPE_RSA, bits)
     else:
         raise errors.Error("Invalid key_type specified: {}.  Use [rsa|ecdsa]".format(key_type))
     return crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
@@ -595,9 +595,20 @@ def _notAfterBefore(cert_path: str,
     timestamp = method(x509)
     if not timestamp:
         raise errors.Error("Error while invoking timestamp method, None has been returned.")
-    reformatted_timestamp = [timestamp[0:4], b"-", timestamp[4:6], b"-",
-                             timestamp[6:8], b"T", timestamp[8:10], b":",
-                             timestamp[10:12], b":", timestamp[12:]]
+    reformatted_timestamp = [
+        timestamp[:4],
+        b"-",
+        timestamp[4:6],
+        b"-",
+        timestamp[6:8],
+        b"T",
+        timestamp[8:10],
+        b":",
+        timestamp[10:12],
+        b":",
+        timestamp[12:],
+    ]
+
     # pyrfc3339 always uses the type `str`
     timestamp_bytes = b"".join(reformatted_timestamp)
     timestamp_str = timestamp_bytes.decode('ascii')

@@ -571,7 +571,7 @@ def _apply_win_mode(file_path: str, mode: int) -> None:
 
 def _generate_dacl(user_sid: Any, mode: int, mask: Optional[int] = None) -> Any:
     if mask:
-        mode = mode & (0o777 - mask)
+        mode &= 0o777 - mask
     analysis = _analyze_mode(mode)
 
     # Get standard accounts from "well-known" sid
@@ -586,15 +586,12 @@ def _generate_dacl(user_sid: Any, mode: int, mask: Optional[int] = None) -> Any:
 
     # If user is already system or admins, any ACE defined here would be superseded by
     # the full control ACE that will be added after.
-    if user_sid not in [system, admins]:
-        # Handle user rights
-        user_flags = _generate_windows_flags(analysis['user'])
-        if user_flags:
-            dacl.AddAccessAllowedAce(win32security.ACL_REVISION, user_flags, user_sid)
+    if user_sid not in [system, admins] and (
+        user_flags := _generate_windows_flags(analysis['user'])
+    ):
+        dacl.AddAccessAllowedAce(win32security.ACL_REVISION, user_flags, user_sid)
 
-    # Handle everybody rights
-    everybody_flags = _generate_windows_flags(analysis['all'])
-    if everybody_flags:
+    if everybody_flags := _generate_windows_flags(analysis['all']):
         dacl.AddAccessAllowedAce(win32security.ACL_REVISION, everybody_flags, everyone)
 
     # Handle administrator rights

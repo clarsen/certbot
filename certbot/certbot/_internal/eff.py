@@ -29,16 +29,17 @@ def prepare_subscription(config: configuration.NamespaceConfig, acc: Account) ->
     """
     if config.eff_email is False:
         return
-    if config.eff_email is True:
-        if config.email is None:
-            _report_failure("you didn't provide an e-mail address")
-        else:
-            # TODO: Remove cast when https://github.com/certbot/certbot/pull/9073 is merged.
-            acc.meta = cast(Account.Meta, acc.meta.update(register_to_eff=config.email))
-    elif config.email and _want_subscription():
+    if config.eff_email is True and config.email is None:
+        _report_failure("you didn't provide an e-mail address")
+    elif (
+        config.eff_email is True
+        and config.email is not None
+        or config.eff_email is not True
+        and config.email
+        and _want_subscription()
+    ):
         # TODO: Remove cast when https://github.com/certbot/certbot/pull/9073 is merged.
         acc.meta = cast(Account.Meta, acc.meta.update(register_to_eff=config.email))
-
     if acc.meta.register_to_eff:
         storage = AccountFileStorage(config)
         storage.update_meta(acc)

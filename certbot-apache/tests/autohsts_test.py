@@ -32,8 +32,7 @@ class AutoHSTSTest(util.ApacheTest):
 
     def get_autohsts_value(self, vh_path):
         """ Get value from Strict-Transport-Security header """
-        header_path = self.config.parser.find_dir("Header", None, vh_path)
-        if header_path:
+        if header_path := self.config.parser.find_dir("Header", None, vh_path):
             pat = '(?:[ "]|^)(strict-transport-security)(?:[ "]|$)'
             for head in header_path:
                 if re.search(pat, self.config.parser.aug.get(head).lower()):

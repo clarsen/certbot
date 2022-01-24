@@ -805,9 +805,7 @@ class RenewableCertTests(BaseRenewableCertTest):
             f.write("[renewalparams]\nuseful = value # A useful value\n"
                     "useless = value # Not needed\n")
         filesystem.chmod(temp, 0o640)
-        target = {}
-        for x in ALL_FOUR:
-            target[x] = "somewhere"
+        target = {x: "somewhere" for x in ALL_FOUR}
         archive_dir = "the_archive"
         relevant_data = {"useful": "new_value"}
 

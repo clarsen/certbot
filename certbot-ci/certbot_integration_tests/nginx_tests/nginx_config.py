@@ -23,10 +23,14 @@ def construct_nginx_config(nginx_root: str, nginx_webroot: str, http_port: int, 
     :return: a string containing the full nginx configuration
     :rtype: str
     """
-    key_path = key_path if key_path \
-        else pkg_resources.resource_filename('certbot_integration_tests', 'assets/key.pem')
-    cert_path = cert_path if cert_path \
-        else pkg_resources.resource_filename('certbot_integration_tests', 'assets/cert.pem')
+    key_path = key_path or pkg_resources.resource_filename(
+        'certbot_integration_tests', 'assets/key.pem'
+    )
+
+    cert_path = cert_path or pkg_resources.resource_filename(
+        'certbot_integration_tests', 'assets/cert.pem'
+    )
+
     return '''\
 # This error log will be written regardless of server scope error_log
 # definitions, so we have to set this here in the main scope.

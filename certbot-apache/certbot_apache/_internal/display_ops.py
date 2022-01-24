@@ -32,8 +32,7 @@ def select_vhost_multiple(vhosts: Optional[List[obj.VirtualHost]]) -> List[obj.V
         "Which VirtualHosts would you like to install the wildcard certificate for?",
         tags=tags_list, force_interactive=True)
     if code == display_util.OK:
-        return_vhosts = _reversemap_vhosts(names, vhosts)
-        return return_vhosts
+        return _reversemap_vhosts(names, vhosts)
     return []
 
 

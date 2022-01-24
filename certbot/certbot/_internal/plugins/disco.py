@@ -96,9 +96,9 @@ class PluginEntryPoint:
     @property
     def long_description(self) -> str:
         """Long description of the plugin."""
-        if self._long_description:
-            return self._long_description
-        return getattr(self.plugin_cls, "long_description", self.description)
+        return self._long_description or getattr(
+            self.plugin_cls, "long_description", self.description
+        )
 
     @long_description.setter
     def long_description(self, description: str) -> None:
@@ -138,11 +138,7 @@ class PluginEntryPoint:
         """Verify that the plugin conforms to the specified interfaces."""
         if not self.initialized:
             raise ValueError("Plugin is not initialized.")
-        for iface in ifaces:  # zope.interface.providedBy(plugin)
-            if not _verify(self.init(), self.plugin_cls, iface):
-                return False
-
-        return True
+        return all(_verify(self.init(), self.plugin_cls, iface) for iface in ifaces)
 
     @property
     def prepared(self) -> bool:
@@ -181,9 +177,7 @@ class PluginEntryPoint:
     @property
     def problem(self) -> Optional[Exception]:
         """Return the Exception raised during plugin setup, or None if all is well"""
-        if isinstance(self._prepared, Exception):
-            return self._prepared
-        return None
+        return self._prepared if isinstance(self._prepared, Exception) else None
 
     @property
     def available(self) -> bool:

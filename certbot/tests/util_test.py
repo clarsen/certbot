@@ -265,9 +265,7 @@ class UniqueLineageNameTest(test_util.TempDirTestCase):
         f.close()
 
     def test_multiple(self):
-        items = []
-        for _ in range(10):
-            items.append(self._call("wow"))
+        items = [self._call("wow") for _ in range(10)]
         f, name = items[-1]
         self.assertIsInstance(f, file_type)
         self.assertIsInstance(name, str)

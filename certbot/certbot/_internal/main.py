@@ -304,11 +304,11 @@ def _find_lineage_for_domains(config: configuration.NamespaceConfig, domains: Li
     if ident_names_cert is None and subset_names_cert is None:
         return "newcert", None
 
-    if ident_names_cert is not None:
-        return _handle_identical_cert_request(config, ident_names_cert)
-    elif subset_names_cert is not None:
-        return _handle_subset_cert_request(config, domains, subset_names_cert)
-    return None, None
+    return (
+        _handle_identical_cert_request(config, ident_names_cert)
+        if ident_names_cert is not None
+        else _handle_subset_cert_request(config, domains, subset_names_cert)
+    )
 
 
 def _find_cert(config: configuration.NamespaceConfig, domains: List[str], certname: str
@@ -361,8 +361,7 @@ def _find_lineage_for_domains_and_certname(
     """
     if not certname:
         return _find_lineage_for_domains(config, domains)
-    lineage = cert_manager.lineage_for_certname(config, certname)
-    if lineage:
+    if lineage := cert_manager.lineage_for_certname(config, certname):
         if domains:
             computed_domains = cert_manager.domains_for_certname(config, certname)
             if computed_domains and set(computed_domains) != set(domains):
@@ -607,10 +606,7 @@ def _is_interactive_only_auth(config: configuration.NamespaceConfig) -> bool:
     """ Whether the current authenticator params only support interactive renewal.
     """
     # --manual without --manual-auth-hook can never autorenew
-    if config.authenticator == "manual" and config.manual_auth_hook is None:
-        return True
-
-    return False
+    return config.authenticator == "manual" and config.manual_auth_hook is None
 
 
 def _csr_report_new_cert(config: configuration.NamespaceConfig, cert_path: Optional[str],
@@ -853,9 +849,7 @@ def register(config: configuration.NamespaceConfig,
     # Portion of _determine_account logic to see whether accounts already
     # exist or not.
     account_storage = account.AccountFileStorage(config)
-    accounts = account_storage.find_all()
-
-    if accounts:
+    if accounts := account_storage.find_all():
         # TODO: add a flag to register a duplicate account (this will
         #       also require extending _determine_account's behavior
         #       or else extracting the registration code from there)
@@ -953,15 +947,20 @@ def show_account(config: configuration.NamespaceConfig,
     output = [f"Account details for server {config.server}:",
               f"  Account URL: {regr.uri}"]
 
-    emails = []
+    emails = [
+        contact[7:]
+        for contact in regr.body.contact
+        if contact.startswith('mailto:')
+    ]
 
-    for contact in regr.body.contact:
-        if contact.startswith('mailto:'):
-            emails.append(contact[7:])
 
-    output.append("  Email contact{}: {}".format(
-                            "s" if len(emails) > 1 else "",
-                            ", ".join(emails) if len(emails) > 0 else "none"))
+    output.append(
+        "  Email contact{}: {}".format(
+            "s" if len(emails) > 1 else "",
+            ", ".join(emails) if emails else "none",
+        )
+    )
+
 
     display_util.notify("\n".join(output))
 
@@ -975,8 +974,7 @@ def _cert_name_from_config_or_lineage(config: configuration.NamespaceConfig,
     elif config.certname:
         return config.certname
     try:
-        cert_name = cert_manager.cert_path_to_lineage(config)
-        return cert_name
+        return cert_manager.cert_path_to_lineage(config)
     except errors.Error:
         pass
 
@@ -1004,7 +1002,7 @@ def _install_cert(config: configuration.NamespaceConfig, le_client: client.Clien
 
     """
     path_provider: Union[storage.RenewableCert,
-                         configuration.NamespaceConfig] = lineage if lineage else config
+                         configuration.NamespaceConfig] = lineage or config
     assert path_provider.cert_path is not None
 
     le_client.deploy_certificate(domains, path_provider.key_path, path_provider.cert_path,
@@ -1055,16 +1053,15 @@ def install(config: configuration.NamespaceConfig,
         raise errors.ConfigurationError("One or more of the requested enhancements "
                                         "require --cert-name to be provided")
 
-    if config.key_path and config.cert_path:
-        _check_certificate_and_key(config)
-        domains, _ = _find_domains_or_certname(config, installer)
-        le_client = _init_le_client(config, authenticator=None, installer=installer)
-        _install_cert(config, le_client, domains)
-    else:
+    if not config.key_path or not config.cert_path:
         raise errors.ConfigurationError("Path to certificate or key was not defined. "
             "If your certificate is managed by Certbot, please use --cert-name "
             "to define which certificate you would like to install.")
 
+    _check_certificate_and_key(config)
+    domains, _ = _find_domains_or_certname(config, installer)
+    le_client = _init_le_client(config, authenticator=None, installer=installer)
+    _install_cert(config, le_client, domains)
     if enhancements.are_requested(config):
         # In the case where we don't have certname, we have errored out already
         lineage = cert_manager.lineage_for_certname(config, config.certname)
@@ -1321,7 +1318,7 @@ def revoke(config: configuration.NamespaceConfig,
         # --server takes priority over lineage.server
         if lineage.server and not cli.set_by_cli("server"):
             config.server = lineage.server
-    elif not config.cert_path or (config.cert_path and config.certname):
+    elif not config.cert_path or config.certname:
         # intentionally not supporting --cert-path & --cert-name together,
         # to avoid dealing with mismatched values
         raise errors.Error("Error! Exactly one of --cert-path or --cert-name must be specified!")

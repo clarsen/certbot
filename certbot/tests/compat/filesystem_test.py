@@ -64,8 +64,13 @@ class WindowsChmodTests(TempDirTestCase):
         filesystem.chmod(self.probe_path, 0o704)
         dacl = _get_security_dacl(self.probe_path).GetSecurityDescriptorDacl()
 
-        self.assertTrue([dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                         if dacl.GetAce(index)[2] == everybody])
+        self.assertTrue(
+            [
+                dacl.GetAce(index)
+                for index in range(dacl.GetAceCount())
+                if dacl.GetAce(index)[2] == everybody
+            ]
+        )
 
     def test_group_permissions_noop(self):
         filesystem.chmod(self.probe_path, 0o700)
@@ -83,10 +88,18 @@ class WindowsChmodTests(TempDirTestCase):
         filesystem.chmod(self.probe_path, 0o400)
         dacl = _get_security_dacl(self.probe_path).GetSecurityDescriptorDacl()
 
-        system_aces = [dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                       if dacl.GetAce(index)[2] == system]
-        admin_aces = [dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                      if dacl.GetAce(index)[2] == admins]
+        system_aces = [
+            dacl.GetAce(index)
+            for index in range(dacl.GetAceCount())
+            if dacl.GetAce(index)[2] == system
+        ]
+
+        admin_aces = [
+            dacl.GetAce(index)
+            for index in range(dacl.GetAceCount())
+            if dacl.GetAce(index)[2] == admins
+        ]
+
 
         self.assertEqual(len(system_aces), 1)
         self.assertEqual(len(admin_aces), 1)
@@ -116,8 +129,12 @@ class WindowsChmodTests(TempDirTestCase):
         dacl = _get_security_dacl(self.probe_path).GetSecurityDescriptorDacl()
         everybody = win32security.ConvertStringSidToSid(EVERYBODY_SID)
 
-        acls_everybody = [dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                          if dacl.GetAce(index)[2] == everybody]
+        acls_everybody = [
+            dacl.GetAce(index)
+            for index in range(dacl.GetAceCount())
+            if dacl.GetAce(index)[2] == everybody
+        ]
+
 
         self.assertEqual(len(acls_everybody), 1)
 
@@ -230,8 +247,13 @@ class WindowsOpenTest(TempDirTestCase):
         dacl = _get_security_dacl(path).GetSecurityDescriptorDacl()
         everybody = win32security.ConvertStringSidToSid(EVERYBODY_SID)
 
-        self.assertFalse([dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                          if dacl.GetAce(index)[2] == everybody])
+        self.assertFalse(
+            [
+                dacl.GetAce(index)
+                for index in range(dacl.GetAceCount())
+                if dacl.GetAce(index)[2] == everybody
+            ]
+        )
 
     def test_existing_file_correct_permissions(self):
         path = os.path.join(self.tempdir, 'file')
@@ -243,8 +265,13 @@ class WindowsOpenTest(TempDirTestCase):
         dacl = _get_security_dacl(path).GetSecurityDescriptorDacl()
         everybody = win32security.ConvertStringSidToSid(EVERYBODY_SID)
 
-        self.assertFalse([dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                          if dacl.GetAce(index)[2] == everybody])
+        self.assertFalse(
+            [
+                dacl.GetAce(index)
+                for index in range(dacl.GetAceCount())
+                if dacl.GetAce(index)[2] == everybody
+            ]
+        )
 
     def test_create_file_on_open(self):
         # os.O_CREAT | os.O_EXCL + file not exists = OK
@@ -301,8 +328,13 @@ class WindowsMkdirTests(test_util.TempDirTestCase):
         everybody = win32security.ConvertStringSidToSid(EVERYBODY_SID)
 
         dacl = _get_security_dacl(path).GetSecurityDescriptorDacl()
-        self.assertFalse([dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                          if dacl.GetAce(index)[2] == everybody])
+        self.assertFalse(
+            [
+                dacl.GetAce(index)
+                for index in range(dacl.GetAceCount())
+                if dacl.GetAce(index)[2] == everybody
+            ]
+        )
 
     def test_makedirs_correct_permissions(self):
         path = os.path.join(self.tempdir, 'dir')
@@ -313,8 +345,13 @@ class WindowsMkdirTests(test_util.TempDirTestCase):
         everybody = win32security.ConvertStringSidToSid(EVERYBODY_SID)
 
         dacl = _get_security_dacl(subpath).GetSecurityDescriptorDacl()
-        self.assertFalse([dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                          if dacl.GetAce(index)[2] == everybody])
+        self.assertFalse(
+            [
+                dacl.GetAce(index)
+                for index in range(dacl.GetAceCount())
+                if dacl.GetAce(index)[2] == everybody
+            ]
+        )
 
     def test_makedirs_switch_os_mkdir(self):
         path = os.path.join(self.tempdir, 'dir')
@@ -377,8 +414,13 @@ class CopyOwnershipAndModeTest(test_util.TempDirTestCase):
         dacl = security.GetSecurityDescriptorDacl()
         everybody = win32security.ConvertStringSidToSid(EVERYBODY_SID)
         self.assertTrue(dacl.GetAceCount())
-        self.assertFalse([dacl.GetAce(index) for index in range(0, dacl.GetAceCount())
-                          if dacl.GetAce(index)[2] == everybody])
+        self.assertFalse(
+            [
+                dacl.GetAce(index)
+                for index in range(dacl.GetAceCount())
+                if dacl.GetAce(index)[2] == everybody
+            ]
+        )
 
     @unittest.skipUnless(POSIX_MODE, reason='Test specific to Linux security')
     def test_copy_ownership_and_apply_mode_linux(self):

@@ -100,8 +100,10 @@ def choose_values(values: List[str], question: Optional[str] = None) -> List[str
     :returns: List of selected values
     :rtype: list
     """
-    code, items = display_util.checklist(question if question else "", tags=values,
-                                         force_interactive=True)
+    code, items = display_util.checklist(
+        question or "", tags=values, force_interactive=True
+    )
+
     if code == display_util.OK and items:
         return items
     return []
@@ -179,10 +181,11 @@ def _filter_names(names: Iterable[str],
     """
     # Sort by domain first, and then by subdomain
     sorted_names = _sort_names(names)
-    if override_question:
-        question = override_question
-    else:
-        question = "Which names would you like to activate HTTPS for?"
+    question = (
+        override_question
+        or "Which names would you like to activate HTTPS for?"
+    )
+
     code, names = display_util.checklist(
         question, tags=sorted_names, cli_flag="--domains", force_interactive=True)
     return code, [str(s) for s in names]
@@ -232,13 +235,10 @@ def _choose_names_manually(prompt_prefix: str = "") -> List[str]:
                 "{0}Would you like to re-enter the names?{0}").format(
                     os.linesep)
 
-        if retry_message:
-            # We had error in input
-            retry = display_util.yesno(retry_message, force_interactive=True)
-            if retry:
-                return _choose_names_manually()
-        else:
+        if not retry_message:
             return domain_list
+        if retry := display_util.yesno(retry_message, force_interactive=True):
+            return _choose_names_manually()
     return []
 
 
@@ -332,18 +332,17 @@ def _get_validated(method: Callable[..., Tuple[str, str]],
 
     while True:
         code, raw = method(message, default=default, **kwargs)
-        if code == display_util.OK:
-            try:
-                validator(raw)
-                return code, raw
-            except errors.Error as error:
-                logger.debug('Validator rejected "%s" when prompting for "%s"',
-                             raw,
-                             message,
-                             exc_info=True)
-                display_util.notification(str(error), pause=False)
-        else:
+        if code != display_util.OK:
             return code, raw
+        try:
+            validator(raw)
+            return code, raw
+        except errors.Error as error:
+            logger.debug('Validator rejected "%s" when prompting for "%s"',
+                         raw,
+                         message,
+                         exc_info=True)
+            display_util.notification(str(error), pause=False)
 
 
 def validated_input(validator: Callable[[str], Any],

@@ -116,12 +116,7 @@ class ApacheHttp01(common.ChallengePerformer):
 
         # If there's at least one eligible VirtualHost, also add all unnamed VirtualHosts
         # because they might match at runtime (#8890)
-        if found:
-            selected_vhosts += self._unnamed_vhosts()
-        # Otherwise, add every Virtualhost which listens on the right port
-        else:
-            selected_vhosts += self._relevant_vhosts()
-
+        selected_vhosts += self._unnamed_vhosts() if found else self._relevant_vhosts()
         # Add the challenge configuration
         for vh in selected_vhosts:
             self._set_up_include_directives(vh)
@@ -153,22 +148,23 @@ class ApacheHttp01(common.ChallengePerformer):
         a wildcard name that would match the domain in ServerName or ServerAlias
         directive.
         """
-        matching_vhosts = []
-        for vhost in self.configurator.vhosts:
-            if self.configurator.domain_in_names(vhost.get_names(), domain):
-                # domain_in_names also matches the exact names, so no need
-                # to check "domain in vhost.get_names()" explicitly here
-                matching_vhosts.append(vhost)
-
-        return matching_vhosts
+        return [
+            vhost
+            for vhost in self.configurator.vhosts
+            if self.configurator.domain_in_names(vhost.get_names(), domain)
+        ]
 
     def _relevant_vhosts(self) -> List[VirtualHost]:
         http01_port = str(self.configurator.config.http01_port)
-        relevant_vhosts: List[VirtualHost] = []
-        for vhost in self.configurator.vhosts:
-            if any(a.is_wildcard() or a.get_port() == http01_port for a in vhost.addrs):
-                if not vhost.ssl:
-                    relevant_vhosts.append(vhost)
+        relevant_vhosts: List[VirtualHost] = [
+            vhost
+            for vhost in self.configurator.vhosts
+            if any(
+                a.is_wildcard() or a.get_port() == http01_port for a in vhost.addrs
+            )
+            and not vhost.ssl
+        ]
+
         if not relevant_vhosts:
             raise errors.PluginError(
                 "Unable to find a virtual host listening on port {0} which is"
@@ -194,11 +190,7 @@ class ApacheHttp01(common.ChallengePerformer):
             finally:
                 filesystem.umask(old_umask)
 
-        responses = []
-        for achall in self.achalls:
-            responses.append(self._set_up_challenge(achall))
-
-        return responses
+        return [self._set_up_challenge(achall) for achall in self.achalls]
 
     def _set_up_challenge(self, achall: KeyAuthorizationAnnotatedChallenge) -> HTTP01Response:
         response: HTTP01Response

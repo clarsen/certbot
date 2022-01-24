@@ -1,4 +1,5 @@
 """Utilities for all Certbot."""
+
 import argparse
 import atexit
 import collections
@@ -29,8 +30,7 @@ from certbot._internal import lock
 from certbot.compat import filesystem
 from certbot.compat import os
 
-_USE_DISTRO = sys.platform.startswith('linux')
-if _USE_DISTRO:
+if _USE_DISTRO := sys.platform.startswith('linux'):
     import distro
 
 if TYPE_CHECKING:
@@ -135,11 +135,10 @@ def exe_exists(exe: str) -> bool:
     path, _ = os.path.split(exe)
     if path:
         return filesystem.is_executable(exe)
-    for path in os.environ["PATH"].split(os.pathsep):
-        if filesystem.is_executable(os.path.join(path, exe)):
-            return True
-
-    return False
+    return any(
+        filesystem.is_executable(os.path.join(path, exe))
+        for path in os.environ["PATH"].split(os.pathsep)
+    )
 
 
 def lock_dir_until_exit(dir_path: str) -> None:
@@ -346,9 +345,7 @@ def get_systemd_os_like() -> List[str]:
     :rtype: `list` of `str`
     """
 
-    if _USE_DISTRO:
-        return distro.like().split(" ")
-    return []
+    return distro.like().split(" ") if _USE_DISTRO else []
 
 def get_var_from_file(varname: str, filepath: str = "/etc/os-release") -> str:
     """

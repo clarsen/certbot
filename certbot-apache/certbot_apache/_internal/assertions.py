@@ -63,11 +63,9 @@ def assertEqualDirective(first: Any, second: Any) -> None:
     _assertEqualDirectiveComponents(first, second)
 
 
-def isPass(value) -> bool:  # pragma: no cover
+def isPass(value) -> bool:    # pragma: no cover
     """Checks if the value is set to PASS"""
-    if isinstance(value, bool):
-        return True
-    return PASS in value
+    return True if isinstance(value, bool) else PASS in value
 
 
 def isPassDirective(block):

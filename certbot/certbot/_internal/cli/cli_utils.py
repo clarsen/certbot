@@ -101,11 +101,15 @@ class CustomHelpFormatter(argparse.HelpFormatter):
 
     def _get_help_string(self, action: argparse.Action) -> Optional[str]:
         helpstr = action.help
-        if action.help and '%(default)' not in action.help and '(default:' not in action.help:
-            if action.default != argparse.SUPPRESS:
-                defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
-                if helpstr and (action.option_strings or action.nargs in defaulting_nargs):
-                    helpstr += ' (default: %(default)s)'
+        if (
+            action.help
+            and '%(default)' not in action.help
+            and '(default:' not in action.help
+            and action.default != argparse.SUPPRESS
+        ):
+            defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+            if helpstr and (action.option_strings or action.nargs in defaulting_nargs):
+                helpstr += ' (default: %(default)s)'
         return helpstr
 
 
@@ -195,9 +199,9 @@ def parse_preferred_challenges(pref_challs: Iterable[str]) -> List[str]:
     challs = [c.strip() for c in pref_challs]
     challs = [aliases.get(c, c) for c in challs]
 
-    unrecognized = ", ".join(name for name in challs
-                             if name not in challenges.Challenge.TYPES)
-    if unrecognized:
+    if unrecognized := ", ".join(
+        name for name in challs if name not in challenges.Challenge.TYPES
+    ):
         raise errors.Error(
             "Unrecognized challenges: {0}".format(unrecognized))
     return challs

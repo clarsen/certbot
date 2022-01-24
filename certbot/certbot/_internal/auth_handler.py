@@ -249,7 +249,7 @@ class AuthHandler:
         # Make sure to make a copy...
         plugin_pref = self.auth.get_chall_pref(domain)
         if self.pref_challs:
-            plugin_pref_types = set(chall.typ for chall in plugin_pref)
+            plugin_pref_types = {chall.typ for chall in plugin_pref}
             for typ in self.pref_challs:
                 if typ in plugin_pref_types:
                     chall_prefs.append(challenges.Challenge.TYPES[typ])
@@ -432,10 +432,14 @@ def _find_dumb_path(challbs: List[messages.ChallengeBody],
     """
     path = []
     for i, challb in enumerate(challbs):
-        # supported is set to True if the challenge type is supported
-        supported = next((True for pref_c in preferences
-                          if isinstance(challb.chall, pref_c)), False)
-        if supported:
+        if supported := next(
+            (
+                True
+                for pref_c in preferences
+                if isinstance(challb.chall, pref_c)
+            ),
+            False,
+        ):
             path.append(i)
         else:
             raise _report_no_chall_path(challbs)
@@ -476,10 +480,7 @@ def _generate_failed_chall_msg(failed_achalls: List[achallenges.AnnotatedChallen
     typ = error.typ
     if messages.is_acme_error(error):
         typ = error.code
-    msg = []
-
-    for achall in failed_achalls:
-        msg.append("\n  Domain: %s\n  Type:   %s\n  Detail: %s\n" % (
-            achall.domain, typ, achall.error.detail))
+    msg = ["\n  Domain: %s\n  Type:   %s\n  Detail: %s\n" % (
+            achall.domain, typ, achall.error.detail) for achall in failed_achalls]
 
     return "".join(msg)

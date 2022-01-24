@@ -102,9 +102,7 @@ class Proxy(interfaces.ConfiguratorProxy):
 
     def get_testable_domain_names(self) -> Set[str]:
         """Returns the set of domain names that can be tested against"""
-        if self._test_names:
-            return self._test_names
-        return {"example.com"}
+        return self._test_names or {"example.com"}
 
     def deploy_cert(self, domain: str, cert_path: str, key_path: str, chain_path: str,
                     fullchain_path: str) -> None:

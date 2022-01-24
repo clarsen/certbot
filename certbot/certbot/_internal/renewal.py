@@ -317,14 +317,16 @@ def should_renew(config: configuration.NamespaceConfig, lineage: storage.Renewab
 def _avoid_invalidating_lineage(config: configuration.NamespaceConfig,
                                 lineage: storage.RenewableCert, original_server: str) -> None:
     """Do not renew a valid cert with one from a staging server!"""
-    if util.is_staging(config.server):
-        if not util.is_staging(original_server):
-            if not config.break_my_certs:
-                names = ", ".join(lineage.names())
-                raise errors.Error(
-                    "You've asked to renew/replace a seemingly valid certificate with "
-                    "a test certificate (domains: {0}). We will not do that "
-                    "unless you use the --break-my-certs flag!".format(names))
+    if (
+        util.is_staging(config.server)
+        and not util.is_staging(original_server)
+        and not config.break_my_certs
+    ):
+        names = ", ".join(lineage.names())
+        raise errors.Error(
+            "You've asked to renew/replace a seemingly valid certificate with "
+            "a test certificate (domains: {0}). We will not do that "
+            "unless you use the --break-my-certs flag!".format(names))
 
 
 def renew_cert(config: configuration.NamespaceConfig, domains: Optional[List[str]],
@@ -390,11 +392,11 @@ def _renew_describe_results(config: configuration.NamespaceConfig, renew_success
     elif renew_successes and not renew_failures:
         notify("Congratulations, all {renewal}s succeeded: ".format(renewal=renewal_noun))
         notify(report(renew_successes, "success"))
-    elif renew_failures and not renew_successes:
+    elif not renew_successes:
         notify_error("All %ss failed. The following certificates could "
                "not be renewed:", renewal_noun)
         notify_error(report(renew_failures, "failure"))
-    elif renew_failures and renew_successes:
+    else:
         notify("The following {renewal}s succeeded:".format(renewal=renewal_noun))
         notify(report(renew_successes, "success") + "\n")
         notify_error("The following %ss failed:", renewal_noun)

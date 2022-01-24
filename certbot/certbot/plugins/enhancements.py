@@ -63,10 +63,10 @@ def are_supported(config: configuration.NamespaceConfig,
     :returns: If all the requested enhancements are supported by the installer
     :rtype: bool
     """
-    for enh in enabled_enhancements(config):
-        if not isinstance(installer, enh["class"]):
-            return False
-    return True
+    return all(
+        isinstance(installer, enh["class"])
+        for enh in enabled_enhancements(config)
+    )
 
 
 def enable(lineage: Optional[interfaces.RenewableCert], domains: Iterable[str],

@@ -55,9 +55,7 @@ def get_configurator():
     try:
         override_class = OVERRIDE_CLASSES[os_name]
     except KeyError:
-        # OS not found in the list
-        os_like = util.get_systemd_os_like()
-        if os_like:
+        if os_like := util.get_systemd_os_like():
             for os_name in os_like:
                 override_class = OVERRIDE_CLASSES.get(os_name)
         if not override_class:

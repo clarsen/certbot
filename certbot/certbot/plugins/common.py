@@ -276,16 +276,12 @@ class Addr:
             return cls((tup[0], tup[2]))
 
     def __str__(self) -> str:
-        if self.tup[1]:
-            return "%s:%s" % self.tup
-        return self.tup[0]
+        return "%s:%s" % self.tup if self.tup[1] else self.tup[0]
 
     def normalized_tuple(self) -> Tuple[str, str]:
         """Normalized representation of addr/port tuple
         """
-        if self.ipv6:
-            return self.get_ipv6_exploded(), self.tup[1]
-        return self.tup
+        return (self.get_ipv6_exploded(), self.tup[1]) if self.ipv6 else self.tup
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):
@@ -318,9 +314,7 @@ class Addr:
 
     def get_ipv6_exploded(self) -> str:
         """Return IPv6 in normalized form"""
-        if self.ipv6:
-            return ":".join(self._normalize_ipv6(self.tup[0]))
-        return ""
+        return ":".join(self._normalize_ipv6(self.tup[0])) if self.ipv6 else ""
 
     def _explode_ipv6(self, addr: str) -> List[str]:
         """Explode IPv6 address for comparison"""
@@ -328,7 +322,7 @@ class Addr:
         addr_list = addr.split(":")
         if len(addr_list) > len(result):
             # too long, truncate
-            addr_list = addr_list[0:len(result)]
+            addr_list = addr_list[:len(result)]
         append_to_end = False
         for i, block in enumerate(addr_list):
             if not block:

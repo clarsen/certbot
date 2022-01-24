@@ -29,10 +29,7 @@ class TLSServer(socketserver.TCPServer):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.ipv6 = kwargs.pop("ipv6", False)
-        if self.ipv6:
-            self.address_family = socket.AF_INET6
-        else:
-            self.address_family = socket.AF_INET
+        self.address_family = socket.AF_INET6 if self.ipv6 else socket.AF_INET
         self.certs = kwargs.pop("certs", {})
         self.method = kwargs.pop("method", crypto_util._DEFAULT_SSL_METHOD)
         self.allow_reuse_address = kwargs.pop("allow_reuse_address", True)
@@ -185,10 +182,7 @@ class HTTPServer(BaseHTTPServer.HTTPServer):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.ipv6 = kwargs.pop("ipv6", False)
-        if self.ipv6:
-            self.address_family = socket.AF_INET6
-        else:
-            self.address_family = socket.AF_INET
+        self.address_family = socket.AF_INET6 if self.ipv6 else socket.AF_INET
         super().__init__(*args, **kwargs)
 
 
@@ -284,8 +278,7 @@ class HTTP01RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(resource.validation.encode())
                 return
-        else:  # pylint: disable=useless-else-on-loop
-            self.log_message("No resources to serve")
+        self.log_message("No resources to serve")
         self.log_message("%s does not correspond to any resource. ignoring",
                          self.path)
 
